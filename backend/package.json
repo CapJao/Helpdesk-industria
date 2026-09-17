@@ -1,0 +1,16 @@
+{
+  "name": "helpdesk-manutencao-industrial-backend",
+  "version": "1.0.0",
+  "description": "API do Helpdesk de Manutencao Industrial - N1",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.1"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "info": {
+    "name": "Helpdesk de Manutenção Industrial - N1",
+    "description": "Coleção da API REST do Helpdesk de Manutenção Industrial (N1). Importe no Postman e gere um link público via 'Share' > 'Via Postman Link' para anexar na entrega.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api" }
+  ],
+  "item": [
+    {
+      "name": "Setores",
+      "item": [
+        {
+          "name": "Listar setores",
+          "request": { "method": "GET", "url": "{{baseUrl}}/setores" }
+        },
+        {
+          "name": "Criar setor",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Produção - Linha 3\"\n}" },
+            "url": "{{baseUrl}}/setores"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Equipamentos",
+      "item": [
+        {
+          "name": "Listar equipamentos",
+          "request": { "method": "GET", "url": "{{baseUrl}}/equipamentos" }
+        },
+        {
+          "name": "Criar equipamento",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Compressor 03\",\n  \"setorId\": \"<id-do-setor>\",\n  \"codigoPatrimonio\": \"EQP-0003\"\n}" },
+            "url": "{{baseUrl}}/equipamentos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Técnicos",
+      "item": [
+        {
+          "name": "Listar técnicos",
+          "request": { "method": "GET", "url": "{{baseUrl}}/tecnicos" }
+        }
+      ]
+    },
+    {
+      "name": "Chamados",
+      "item": [
+        {
+          "name": "Listar chamados",
+          "request": { "method": "GET", "url": "{{baseUrl}}/chamados" }
+        },
+        {
+          "name": "Abrir chamado",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"equipamentoId\": \"<id-do-equipamento>\",\n  \"urgencia\": \"Alta\",\n  \"tipo\": \"Corretiva\",\n  \"descricao\": \"Ruído anormal no motor\"\n}" },
+            "url": "{{baseUrl}}/chamados"
+          }
+        },
+        {
+          "name": "Atribuir chamado a técnico (RN crítica aplicada aqui)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"tecnicoId\": \"<id-do-tecnico>\"\n}" },
+            "url": "{{baseUrl}}/chamados/<id-do-chamado>/atribuir"
+          }
+        },
+        {
+          "name": "Concluir chamado",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/chamados/<id-do-chamado>/concluir"
+          }
+        }
+      ]
+    }
+  ]
+}
