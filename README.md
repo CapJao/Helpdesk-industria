@@ -24,7 +24,7 @@ usuário.
 ```
 projeto/
 ├── README.md
-├── frontend/           # HTML/CSS/JS simples, consumindo a API via fetch
+├── frontend/           # React + TypeScript + Vite
 ├── backend/            # API REST em Node.js/Express (dados em memória na N1)
 │   └── src/
 │       ├── db/         # "banco" em memória + seed
@@ -39,18 +39,35 @@ projeto/
 
 ## Como executar localmente
 
-Pré-requisitos: Node.js 18+.
+Pré-requisitos: Node.js 20+ e npm.
+
+Inicie o backend em um terminal:
 
 ```bash
 cd backend
-npm install
+npm ci
 npm start
-# API + frontend estático em http://localhost:3001
 ```
 
-Abra `http://localhost:3001` no navegador. O frontend já vem pré-carregado
-com 2 setores, 2 equipamentos e 2 técnicos de exemplo (seed em
+Em outro terminal, inicie o frontend:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Abra `http://localhost:5173`. O Vite encaminha as chamadas `/api` para o
+backend em `http://localhost:3001`. O backend vem pré-carregado com 2 setores,
+2 equipamentos e 2 técnicos de exemplo (seed em
 `backend/src/db/memoryDb.js`).
+
+## Integração contínua
+
+O GitHub Actions valida o backend (`npm ci` e `npm test`) e o frontend
+(`npm ci`, `npm run lint` e `npm run build`) em cada push e pull request.
+Esses comandos também podem ser executados localmente nas pastas
+`backend` e `frontend`, respectivamente.
 
 ## Principais endpoints da API
 
