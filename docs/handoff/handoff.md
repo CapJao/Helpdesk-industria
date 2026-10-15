@@ -11,7 +11,8 @@ viabilidade de recepção e dar continuidade nas evoluções N2/N3.
 - Atribuição de chamados a técnicos, com fila priorizada por urgência.
 - **RN crítica implementada e testada:** um técnico não pode ter mais de 2
   chamados "Alta" abertos simultaneamente (`backend/src/services/chamadoService.js`).
-- Frontend funcional (HTML/JS) consumindo a API.
+- Frontend React + TypeScript + Vite consumindo a API.
+- CI no GitHub Actions com teste da RN crítica do backend e lint/build do frontend.
 
 ## 2. O que NÃO foi feito nesta entrega (fica para N2/N3)
 
@@ -20,7 +21,9 @@ viabilidade de recepção e dar continuidade nas evoluções N2/N3.
 - Agendamento automático de preventivas.
 - Persistência real em banco de dados (ver DT-01 em `docs/debitos-tecnicos`).
 - Autenticação/autorização.
-- Testes automatizados e pipeline de CI/CD (ver DT-03 e DT-07).
+- Cobertura de testes ainda limitada à RN crítica do backend; faltam testes dos
+  demais endpoints e fluxos da interface (ver DT-03).
+- Deploy contínuo e ambiente de hospedagem não configurados (ver DT-07).
 
 ## 3. Como rodar e onde mexer
 
