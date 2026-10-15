@@ -52,6 +52,12 @@ Abra `http://localhost:3001` no navegador. O frontend já vem pré-carregado
 com 2 setores, 2 equipamentos e 2 técnicos de exemplo (seed em
 `backend/src/db/memoryDb.js`).
 
+## Integração contínua
+
+O GitHub Actions executa `npm ci` e `npm test` no backend em cada push e
+pull request. Para rodar a suíte localmente, execute `npm test` dentro da
+pasta `backend`.
+
 ## Principais endpoints da API
 
 | Método | Rota | Descrição |

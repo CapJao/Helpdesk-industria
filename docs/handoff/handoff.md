@@ -20,7 +20,8 @@ viabilidade de recepção e dar continuidade nas evoluções N2/N3.
 - Agendamento automático de preventivas.
 - Persistência real em banco de dados (ver DT-01 em `docs/debitos-tecnicos`).
 - Autenticação/autorização.
-- Testes automatizados e pipeline de CI/CD (ver DT-03 e DT-07).
+- Cobertura automatizada ainda restrita à regra crítica; o CI básico executa
+  essa suíte em pushes e pull requests (ver DT-03 e DT-07).
 
 ## 3. Como rodar e onde mexer
 
