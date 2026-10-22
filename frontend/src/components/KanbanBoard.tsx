@@ -100,7 +100,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
         {c.descricao && <div className="ticket-description">{c.descricao}</div>}
 
-        {c.laudo && (
+        {(c.laudo || c.trocas?.length || c.pecasTrocadas) && (
           <div
             style={{
               background: 'var(--success-bg)',
@@ -111,8 +111,18 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               color: 'var(--success-text)',
             }}
           >
-            <strong>Laudo:</strong> {c.laudo}
-            {c.pecasTrocadas && (
+            {c.laudo && <div><strong>Laudo:</strong> {c.laudo}</div>}
+            {Boolean(c.trocas?.length) && (
+              <ul className="ticket-parts-list" aria-label="Peças substituídas">
+                {c.trocas?.map((troca) => (
+                  <li key={troca.id}>
+                    {troca.quantidade} × {troca.pecaNome}
+                    {troca.observacao && <div>{troca.observacao}</div>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!c.trocas?.length && c.pecasTrocadas && (
               <div style={{ color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Peças: {c.pecasTrocadas}
               </div>

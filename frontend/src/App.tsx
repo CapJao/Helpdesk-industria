@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Kanban, Users, Cpu } from 'lucide-react';
 import { api, ApiError } from './services/api';
-import type { Chamado, Equipamento, Setor, Tecnico, Urgencia, TipoChamado } from './types';
+import type { Chamado, Equipamento, Setor, Tecnico, Urgencia, TipoChamado, ConclusaoChamado } from './types';
+import { PartsHistoryModal } from './components/PartsHistoryModal'
 import { Navbar } from './components/Navbar';
 import { KpiCards } from './components/KpiCards';
 import { KanbanBoard } from './components/KanbanBoard';
@@ -27,6 +28,7 @@ export function App() {
   const [isNovoEquipamentoOpen, setIsNovoEquipamentoOpen] = useState(false);
   const [isNovoSetorOpen, setIsNovoSetorOpen] = useState(false);
   const [concluirTargetChamado, setConcluirTargetChamado] = useState<Chamado | null>(null);
+  const [historicoEquipamento, setHistoricoEquipamento] = useState<Equipamento | null>(null)
   const [initialEquipamentoId, setInitialEquipamentoId] = useState<string | undefined>();
 
   // Toasts
@@ -86,18 +88,11 @@ export function App() {
     }
   };
 
-  const handleConcluir = async (
-    chamadoId: string,
-    dados: { laudo?: string; causaRaiz?: string; pecasTrocadas?: string }
-  ) => {
-    try {
-      await api.concluirChamado(chamadoId, dados);
-      await carregarDados();
-      addToast('success', 'Chamado Concluído', 'Ordem de serviço finalizada e vaga liberada para o técnico.');
-    } catch (err: any) {
-      addToast('error', 'Falha ao Concluir', err.message || 'Erro na conclusão');
-    }
-  };
+  const handleConcluir = async (chamadoId: string, dados: ConclusaoChamado) => {
+    await api.concluirChamado(chamadoId, dados)
+    await carregarDados()
+    addToast('success', 'Chamado Concluído', 'Ordem de serviço finalizada e vaga liberada para o técnico.')
+  }
 
   const handleCreateChamado = async (dados: {
     equipamentoId: string;
@@ -211,6 +206,7 @@ export function App() {
             onOpenNovoEquipamento={() => setIsNovoEquipamentoOpen(true)}
             onOpenNovoSetor={() => setIsNovoSetorOpen(true)}
             onAbrirChamadoParaEquipamento={handleAbrirParaEquipamento}
+            onOpenHistorico={setHistoricoEquipamento}
           />
         )}
       </main>
@@ -237,7 +233,16 @@ export function App() {
         onSubmit={handleCreateSetor}
       />
 
+      {historicoEquipamento && (
+        <PartsHistoryModal
+          key={historicoEquipamento.id}
+          equipamento={historicoEquipamento}
+          onClose={() => setHistoricoEquipamento(null)}
+        />
+      )}
+
       <ModalConcluirChamado
+        key={concluirTargetChamado?.id ?? 'fechado'}
         chamado={concluirTargetChamado}
         onClose={() => setConcluirTargetChamado(null)}
         onSubmit={handleConcluir}

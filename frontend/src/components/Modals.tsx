@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
-import type { Equipamento, Setor, Chamado, Urgencia, TipoChamado } from '../types';
+import React, { useRef, useState } from 'react';
+import { ModalDialog } from './ModalDialog'
+import { X, Plus, Trash2 } from 'lucide-react';
+import type { Equipamento, Setor, Chamado, Urgencia, TipoChamado, ConclusaoChamado } from '../types';
 
 interface ModalNovoChamadoProps {
   isOpen: boolean;
@@ -304,7 +305,7 @@ export const ModalNovoSetor: React.FC<ModalNovoSetorProps> = ({
 interface ModalConcluirChamadoProps {
   chamado: Chamado | null;
   onClose: () => void;
-  onSubmit: (chamadoId: string, dados: { laudo?: string; causaRaiz?: string; pecasTrocadas?: string }) => Promise<void>;
+  onSubmit: (chamadoId: string, dados: ConclusaoChamado) => Promise<void>;
 }
 
 export const ModalConcluirChamado: React.FC<ModalConcluirChamadoProps> = ({
@@ -314,89 +315,163 @@ export const ModalConcluirChamado: React.FC<ModalConcluirChamadoProps> = ({
 }) => {
   const [laudo, setLaudo] = useState('');
   const [causaRaiz, setCausaRaiz] = useState('Desgaste Natural / Fim de vida útil');
-  const [pecasTrocadas, setPecasTrocadas] = useState('');
+  const [trocas, setTrocas] = useState<{ id: string; pecaNome: string; quantidade: string; observacao: string }[]>([])
+  const [erro, setErro] = useState('')
   const [loading, setLoading] = useState(false);
+  const proximaPecaId = useRef(0)
 
   if (!chamado) return null;
 
+  const handleAdicionarPeca = () => {
+    const id = String(proximaPecaId.current++)
+    setTrocas((atuais) => [...atuais, { id, pecaNome: '', quantidade: '1', observacao: '' }])
+  }
+
+  const handleAlterarPeca = (id: string, campo: 'pecaNome' | 'quantidade' | 'observacao', valor: string) => {
+    setTrocas((atuais) => atuais.map((troca) => troca.id === id ? { ...troca, [campo]: valor } : troca))
+  }
+
+  const handleRemoverPeca = (id: string) => {
+    setTrocas((atuais) => atuais.filter((troca) => troca.id !== id))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setLoading(true);
-      await onSubmit(chamado.id, {
-        laudo: laudo.trim() || 'Manutenção executada e máquina liberada.',
-        causaRaiz,
-        pecasTrocadas: pecasTrocadas.trim() || undefined,
-      });
-      setLaudo('');
-      setPecasTrocadas('');
-      onClose();
-    } finally {
-      setLoading(false);
+    e.preventDefault()
+    if (loading) return
+    setErro('')
+    const pecas = trocas.map((troca) => ({
+      pecaNome: troca.pecaNome.trim(),
+      quantidade: Number(troca.quantidade),
+      ...(troca.observacao.trim() ? { observacao: troca.observacao.trim() } : {}),
+    }))
+    const temPecaInvalida = pecas.some((troca) =>
+      !troca.pecaNome || !Number.isInteger(troca.quantidade) || troca.quantidade < 1 || troca.quantidade > 2147483647
+    )
+    if (!laudo.trim() || temPecaInvalida) {
+      setErro('Preencha o laudo e informe nome e quantidade válida para cada peça.')
+      return
     }
-  };
+    try {
+      setLoading(true)
+      await onSubmit(chamado.id, {
+        laudo: laudo.trim(),
+        causaRaiz,
+        trocas: pecas,
+        pecasTrocadas: pecas.map((troca) =>
+          `${troca.quantidade} × ${troca.pecaNome}${troca.observacao ? ` (${troca.observacao})` : ''}`
+        ).join('; '),
+      })
+      onClose()
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível concluir o chamado. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>✓ Concluir Chamado: {chamado.equipamento?.nome}</h3>
-          <button className="btn btn-secondary btn-sm" onClick={onClose} style={{ padding: '0.2rem', border: 'none' }}>
-            <X size={16} />
+    <ModalDialog title={`Concluir Chamado: ${chamado.equipamento?.nome ?? 'Equipamento'}`} onClose={onClose} busy={loading}>
+      <form onSubmit={handleSubmit}>
+        <fieldset className="modal-body parts-fields" disabled={loading}>
+          {erro && <p className="parts-error" role="alert">{erro}</p>}
+          <div className="form-field">
+            <label htmlFor="concluir-laudo">Laudo Técnico / Ação Executada *</label>
+            <textarea
+              id="concluir-laudo"
+              autoFocus
+              className="form-textarea"
+              rows={3}
+              placeholder="Descreva o que foi corrigido..."
+              value={laudo}
+              onChange={(e) => setLaudo(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="concluir-causa">Causa Raiz da Falha</label>
+            <select
+              id="concluir-causa"
+              className="form-select"
+              value={causaRaiz}
+              onChange={(e) => setCausaRaiz(e.target.value)}
+            >
+              <option value="Desgaste Natural / Fim de vida útil">Desgaste Natural / Fim de vida útil</option>
+              <option value="Falha Mecânica">Falha Mecânica (fadiga, quebra)</option>
+              <option value="Falha Elétrica / Eletrônica">Falha Elétrica / Eletrônica (sensor, motor)</option>
+              <option value="Falha Operacional">Falha Operacional / Erro de operação</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+
+          <section className="parts-editor" aria-labelledby="pecas-titulo">
+            <div className="parts-section-header">
+              <h4 id="pecas-titulo">Peças substituídas</h4>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={handleAdicionarPeca}>
+                <Plus size={14} aria-hidden="true" /> Adicionar peça
+              </button>
+            </div>
+            {trocas.length === 0 && <p className="parts-muted">Nenhuma peça adicionada. Você pode concluir sem registrar trocas.</p>}
+            {trocas.map((troca, index) => (
+              <div key={troca.id} className="part-editor-row">
+                <div className="parts-section-header">
+                  <h5>Peça {index + 1}</h5>
+                  <button type="button" className="btn btn-secondary btn-sm" aria-label={`Remover peça ${index + 1}`} onClick={() => handleRemoverPeca(troca.id)}>
+                    <Trash2 size={14} aria-hidden="true" /> Remover
+                  </button>
+                </div>
+                <div className="part-name-quantity">
+                  <div className="form-field">
+                    <label htmlFor={`peca-nome-${troca.id}`}>Nome da peça {index + 1}</label>
+                    <input
+                      id={`peca-nome-${troca.id}`}
+                      className="form-input"
+                      value={troca.pecaNome}
+                      maxLength={100}
+                      required
+                      onChange={(e) => handleAlterarPeca(troca.id, 'pecaNome', e.target.value)}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label htmlFor={`peca-qtd-${troca.id}`}>Quantidade {index + 1}</label>
+                    <input
+                      id={`peca-qtd-${troca.id}`}
+                      className="form-input"
+                      type="number"
+                      min={1}
+                      max={2147483647}
+                      step={1}
+                      required
+                      value={troca.quantidade}
+                      onChange={(e) => handleAlterarPeca(troca.id, 'quantidade', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="form-field">
+                  <label htmlFor={`peca-obs-${troca.id}`}>Observação {index + 1} (opcional)</label>
+                  <textarea
+                    id={`peca-obs-${troca.id}`}
+                    className="form-textarea"
+                    rows={2}
+                    maxLength={500}
+                    value={troca.observacao}
+                    onChange={(e) => handleAlterarPeca(troca.id, 'observacao', e.target.value)}
+                  />
+                </div>
+              </div>
+            ))}
+          </section>
+        </fieldset>
+
+        <div className="modal-actions">
+          <button type="button" className="btn btn-secondary" disabled={loading} onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn btn-success" disabled={loading}>
+            {loading ? 'Concluindo...' : 'Concluir Ordem de Serviço'}
           </button>
         </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
-            <div className="form-field">
-              <label>Laudo Técnico / Ação Executada *</label>
-              <textarea
-                className="form-textarea"
-                rows={3}
-                placeholder="Descreva o que foi corrigido..."
-                value={laudo}
-                onChange={(e) => setLaudo(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-field">
-              <label>Causa Raiz da Falha</label>
-              <select
-                className="form-select"
-                value={causaRaiz}
-                onChange={(e) => setCausaRaiz(e.target.value)}
-              >
-                <option value="Desgaste Natural / Fim de vida útil">Desgaste Natural / Fim de vida útil</option>
-                <option value="Falha Mecânica">Falha Mecânica (fadiga, quebra)</option>
-                <option value="Falha Elétrica / Eletrônica">Falha Elétrica / Eletrônica (sensor, motor)</option>
-                <option value="Falha Operacional">Falha Operacional / Erro de operação</option>
-                <option value="Outro">Outro</option>
-              </select>
-            </div>
-
-            <div className="form-field">
-              <label>Peças / Componentes Substituídos (Opcional - N2)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Ex: Rolamento 6204, Correia B42..."
-                value={pecasTrocadas}
-                onChange={(e) => setPecasTrocadas(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn-success" disabled={loading}>
-              {loading ? 'Concluindo...' : 'Concluir Ordem de Serviço'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+      </form>
+    </ModalDialog>
+  )
+}
