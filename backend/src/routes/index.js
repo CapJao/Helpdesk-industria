@@ -34,6 +34,10 @@ router.post("/setores", asHandler((req) => service.criarSetor(req.body)));
 // Equipamentos
 router.get("/equipamentos", asHandler(() => service.listarEquipamentos()));
 router.post("/equipamentos", asHandler((req) => service.criarEquipamento(req.body)));
+router.get(
+  "/equipamentos/:id/pecas",
+  asHandler((req) => service.listarHistoricoPecas(req.params.id))
+);
 
 // Técnicos
 router.get("/tecnicos", asHandler(() => service.listarTecnicos()));
@@ -50,8 +54,14 @@ router.patch(
 router.patch(
   "/chamados/:id/concluir",
   asHandler((req) => {
-    const { laudo, causaRaiz, pecasTrocadas } = req.body || {};
-    return service.concluirChamado({ chamadoId: req.params.id, laudo, causaRaiz, pecasTrocadas });
+    const { laudo, causaRaiz, pecasTrocadas, trocas } = req.body || {};
+    return service.concluirChamado({
+      chamadoId: req.params.id,
+      laudo,
+      causaRaiz,
+      pecasTrocadas,
+      trocas: trocas ?? [],
+    });
   })
 );
 

@@ -116,14 +116,21 @@ test("falha ao gravar uma troca desfaz a conclusao inteira", async () => {
     urgencia: "Media",
   });
 
-  // Passa na validação do service, mas estoura o integer do Postgres na 2ª troca.
-  await assert.rejects(
-    service.concluirChamado({
-      chamadoId: chamado.id,
-      laudo: "Nao deve ficar gravado.",
-      trocas: [{ pecaNome: "Correia" }, { pecaNome: "Parafuso", quantidade: 2 ** 31 }],
-    })
-  );
+  // Simula o banco recusando a 2ª troca depois que a conclusão e a 1ª troca
+  // já foram escritas na transação.
+  await db.query("ALTER TABLE trocas_peca ADD CONSTRAINT teste_falha CHECK (peca_nome <> 'FALHA')");
+  try {
+    await assert.rejects(
+      service.concluirChamado({
+        chamadoId: chamado.id,
+        laudo: "Nao deve ficar gravado.",
+        trocas: [{ pecaNome: "Correia" }, { pecaNome: "FALHA" }],
+      }),
+      (error) => error.code === "23514"
+    );
+  } finally {
+    await db.query("ALTER TABLE trocas_peca DROP CONSTRAINT teste_falha");
+  }
 
   const [atual] = (await service.listarChamados()).filter((c) => c.id === chamado.id);
   assert.equal(atual.status, "Aberto");
@@ -138,7 +145,15 @@ test("rejeita troca invalida antes de gravar", async () => {
     urgencia: "Media",
   });
 
-  for (const trocas of [[{ pecaNome: "" }], [{ pecaNome: "Correia", quantidade: 0 }]]) {
+  const invalidas = [
+    [{ pecaNome: "" }],
+    [{ pecaNome: "x".repeat(101) }],
+    [{ pecaNome: "Correia", quantidade: 0 }],
+    [{ pecaNome: "Correia", quantidade: 1.5 }],
+    [{ pecaNome: "Correia", quantidade: 2 ** 31 }],
+    [{ pecaNome: "Correia", observacao: "x".repeat(501) }],
+  ];
+  for (const trocas of invalidas) {
     await assert.rejects(
       service.concluirChamado({ chamadoId: chamado.id, trocas }),
       (error) => error instanceof service.RegraDeNegocioError && error.statusCode === 422
@@ -221,4 +236,76 @@ test("registros inexistentes retornam 404", async () => {
     service.criarEquipamento({ nome: "Prensa", setorId: idInexistente }),
     naoEncontrado
   );
+});
+
+test("chamado devolve as trocas na ordem informada, ou lista vazia", async () => {
+  const equipamentoId = seed.equipamentos[0].id;
+  const semTroca = await service.abrirChamado({ equipamentoId, urgencia: "Baixa" });
+  const comTroca = await service.abrirChamado({ equipamentoId, urgencia: "Baixa" });
+
+  assert.deepEqual(semTroca.trocas, []);
+  const concluido = await service.concluirChamado({
+    chamadoId: comTroca.id,
+    trocas: [
+      { pecaNome: "Rolamento 6205", quantidade: 2 },
+      { pecaNome: "Correia", observacao: "Tensionada" },
+      { pecaNome: "Anel O-ring" },
+    ],
+  });
+
+  assert.deepEqual(
+    concluido.trocas.map((t) => [t.pecaNome, t.quantidade, t.observacao]),
+    [
+      ["Rolamento 6205", 2, null],
+      ["Correia", 1, "Tensionada"],
+      ["Anel O-ring", 1, null],
+    ]
+  );
+  assert.match(concluido.trocas[0].registradoEm, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  const [listado] = (await service.listarChamados()).filter((c) => c.id === comTroca.id);
+  assert.equal(listado.trocas.length, 3);
+});
+
+test("historico de pecas vem da troca mais recente para a mais antiga", async () => {
+  const equipamentoId = seed.equipamentos[0].id;
+  const tecnicoId = seed.tecnicos[0].id;
+
+  const antigo = await service.abrirChamado({ equipamentoId, urgencia: "Media" });
+  await service.atribuirChamado({ chamadoId: antigo.id, tecnicoId });
+  await service.concluirChamado({
+    chamadoId: antigo.id,
+    causaRaiz: "Falha Mecânica",
+    trocas: [{ pecaNome: "Correia" }, { pecaNome: "Polia" }],
+  });
+
+  const recente = await service.abrirChamado({ equipamentoId, urgencia: "Alta", tipo: "Preventiva" });
+  await service.concluirChamado({ chamadoId: recente.id, trocas: [{ pecaNome: "Filtro", quantidade: 3 }] });
+
+  // Troca de outro equipamento não entra no histórico.
+  const outro = await service.abrirChamado({ equipamentoId: seed.equipamentos[1].id, urgencia: "Baixa" });
+  await service.concluirChamado({ chamadoId: outro.id, trocas: [{ pecaNome: "Sensor" }] });
+
+  const historico = await service.listarHistoricoPecas(equipamentoId);
+
+  assert.deepEqual(historico.map((t) => t.pecaNome), ["Filtro", "Correia", "Polia"]);
+  assert.deepEqual(historico[0].chamado.id, recente.id);
+  assert.equal(historico[0].chamado.tipo, "Preventiva");
+  assert.equal(historico[0].chamado.urgencia, "Alta");
+  assert.equal(historico[0].chamado.causaRaiz, null);
+  assert.equal(historico[0].tecnico, null);
+  assert.equal(historico[1].chamado.causaRaiz, "Falha Mecânica");
+  assert.equal(historico[1].tecnico.id, tecnicoId);
+  assert.ok(historico[1].tecnico.nome);
+  assert.ok(historico[1].chamado.finalizadoEm <= historico[0].chamado.finalizadoEm);
+});
+
+test("historico vazio e equipamento inexistente", async () => {
+  assert.deepEqual(await service.listarHistoricoPecas(seed.equipamentos[1].id), []);
+
+  for (const id of ["x", "00000000-0000-4000-8000-000000000000"]) {
+    await assert.rejects(
+      service.listarHistoricoPecas(id),
+      (error) => error instanceof service.NaoEncontradoError && error.statusCode === 404
+    );
+  }
 });

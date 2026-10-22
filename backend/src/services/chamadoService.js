@@ -5,6 +5,7 @@ const TIPOS = ["Corretiva", "Preventiva"];
 const STATUS_ABERTOS = ["Aberto", "Em Andamento"];
 const LIMITE_CHAMADOS_ALTA_POR_TECNICO = 2;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_QUANTIDADE = 2147483647; // limite do integer do Postgres
 
 class RegraDeNegocioError extends Error {
   constructor(message) {
@@ -37,7 +38,10 @@ const SELECT_TECNICO = `
   SELECT id, nome, matricula, chamados_alta_abertos AS "chamadosAltaAbertos"
   FROM tecnicos_com_carga`;
 
-// Chamado já enriquecido com equipamento (+ setor) e técnico (+ carga), no formato do frontend.
+// Datas dentro de json_build_object saem no mesmo formato ISO (UTC) das colunas comuns.
+const iso = (coluna) => `to_char(${coluna} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+
+// Chamado já enriquecido com equipamento (+ setor), técnico (+ carga) e trocas, no formato do frontend.
 const SELECT_CHAMADO = `
   SELECT c.id, c.equipamento_id AS "equipamentoId", c.tecnico_id AS "tecnicoId",
          c.urgencia, c.tipo, c.status, c.descricao,
@@ -51,7 +55,15 @@ const SELECT_CHAMADO = `
          CASE WHEN t.id IS NULL THEN NULL ELSE json_build_object(
            'id', t.id, 'nome', t.nome, 'matricula', t.matricula,
            'chamadosAltaAbertos', t.chamados_alta_abertos
-         ) END AS tecnico
+         ) END AS tecnico,
+         COALESCE((
+           SELECT json_agg(json_build_object(
+                    'id', tp.id, 'pecaNome', tp.peca_nome, 'quantidade', tp.quantidade,
+                    'observacao', tp.observacao, 'registradoEm', ${iso("tp.registrado_em")}
+                  ) ORDER BY tp.registrado_em, tp.posicao)
+           FROM trocas_peca tp
+           WHERE tp.chamado_id = c.id
+         ), '[]') AS trocas
   FROM chamados c
   JOIN equipamentos e ON e.id = c.equipamento_id
   JOIN setores s ON s.id = e.setor_id
@@ -204,8 +216,12 @@ function validarTrocas(trocas) {
       throw new RegraDeNegocioError("pecaNome é obrigatório e deve ter até 100 caracteres.");
     }
     const quantidade = troca.quantidade ?? 1;
-    if (!Number.isInteger(quantidade) || quantidade < 1) {
+    if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > MAX_QUANTIDADE) {
       throw new RegraDeNegocioError("quantidade deve ser um inteiro a partir de 1.");
+    }
+    const { observacao } = troca;
+    if (observacao != null && (typeof observacao !== "string" || observacao.length > 500)) {
+      throw new RegraDeNegocioError("observacao deve ter até 500 caracteres.");
     }
   }
 }
@@ -238,16 +254,45 @@ async function concluirChamado({ chamadoId, laudo, causaRaiz, pecasTrocadas, tro
       [chamadoId, laudo || "", causaRaiz || "", pecasTrocadas || ""]
     );
 
-    for (const troca of trocas) {
+    for (const [i, troca] of trocas.entries()) {
       await db.query(
-        `INSERT INTO trocas_peca (chamado_id, equipamento_id, peca_nome, quantidade, observacao)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [chamadoId, chamado.equipamentoId, troca.pecaNome.trim(), troca.quantidade ?? 1, troca.observacao || null]
+        `INSERT INTO trocas_peca (chamado_id, equipamento_id, peca_nome, quantidade, observacao, posicao)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [chamadoId, chamado.equipamentoId, troca.pecaNome.trim(), troca.quantidade ?? 1, troca.observacao || null, i + 1]
       );
     }
 
     return buscarChamado(db, chamadoId);
   });
+}
+
+/**
+ * FR-13: peças trocadas no equipamento, da troca mais recente para a mais
+ * antiga, com o chamado de origem e o técnico que o atendeu.
+ */
+async function listarHistoricoPecas(equipamentoId) {
+  if (!ehUuid(equipamentoId)) throw new NaoEncontradoError("Equipamento não encontrado.");
+  const { rowCount } = await query("SELECT 1 FROM equipamentos WHERE id = $1", [equipamentoId]);
+  if (rowCount === 0) throw new NaoEncontradoError("Equipamento não encontrado.");
+
+  const { rows } = await query(
+    `SELECT tp.id, tp.peca_nome AS "pecaNome", tp.quantidade, tp.observacao,
+            ${iso("tp.registrado_em")} AS "registradoEm",
+            json_build_object(
+              'id', c.id, 'tipo', c.tipo, 'urgencia', c.urgencia,
+              'causaRaiz', NULLIF(c.causa_raiz, ''),
+              'finalizadoEm', ${iso("c.finalizado_em")}
+            ) AS chamado,
+            CASE WHEN t.id IS NULL THEN NULL
+                 ELSE json_build_object('id', t.id, 'nome', t.nome) END AS tecnico
+     FROM trocas_peca tp
+     JOIN chamados c ON c.id = tp.chamado_id
+     LEFT JOIN tecnicos t ON t.id = c.tecnico_id
+     WHERE tp.equipamento_id = $1
+     ORDER BY tp.registrado_em DESC, tp.posicao`,
+    [equipamentoId]
+  );
+  return rows;
 }
 
 module.exports = {
@@ -264,5 +309,6 @@ module.exports = {
   abrirChamado,
   atribuirChamado,
   concluirChamado,
+  listarHistoricoPecas,
   contarChamadosAltaAbertos,
 };
