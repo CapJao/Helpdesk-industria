@@ -8,7 +8,7 @@ prioridade máxima no ciclo seguinte.
 
 | ID | Débito | Motivo do atalho na N1 | Impacto se não pago | Prioridade | Responsável pelo pagamento |
 |---|---|---|---|---|---|
-| DT-01 | Persistência em memória (`memoryDb.js`) em vez de banco relacional real | Acelerar entrega do escopo funcional da N1 sem custo de infraestrutura de banco | Dados perdidos a cada restart; inviabiliza histórico de peças e MTBF da N2 | Alta | Dev Backend + DevOps |
+| DT-01 | Persistência em memória (`memoryDb.js`) em vez de banco relacional real — quitado com PostgreSQL (`embedded-postgres` local, migrations em `backend/migrations`) | Acelerar entrega do escopo funcional da N1 sem custo de infraestrutura de banco | Débito resolvido; dados persistem e a RN crítica roda em transação com lock | Quitado | Dev Backend |
 | DT-02 | Sem autenticação/autorização de usuários | N1 não exigia controle de acesso por perfil | Qualquer usuário pode atribuir/concluir chamados de qualquer técnico | Média | Dev Backend |
 | DT-03 | Cobertura automatizada limitada à RN crítica do backend | Priorizar a regra de negócio crítica na implantação inicial do CI | Regressões nos demais endpoints e fluxos da interface podem passar despercebidas | Alta | QA + Dev Backend |
 | DT-04 | Frontend sem framework/build (HTML/JS puro) — quitado com React, TypeScript e Vite | Simplificar a entrega inicial da N1; atualizado na evolução do frontend | Débito resolvido; frontend agora possui build e lint | Quitado | Dev Frontend |

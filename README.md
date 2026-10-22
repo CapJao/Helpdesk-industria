@@ -25,12 +25,14 @@ usuário.
 projeto/
 ├── README.md
 ├── frontend/           # React + TypeScript + Vite
-├── backend/            # API REST em Node.js/Express (dados em memória na N1)
+├── backend/            # API REST em Node.js/Express + PostgreSQL
+│   ├── migrations/     # schema do banco, um .sql por mudança
 │   └── src/
-│       ├── db/         # "banco" em memória + seed
+│       ├── db/         # conexão, Postgres local, migrations e seed
 │       ├── services/   # regras de negócio (chamadoService.js)
 │       ├── routes/     # rotas HTTP
-│       └── server.js
+│       ├── app.js      # app Express (usado também nos testes)
+│       └── server.js   # boot: banco + migrations + seed + servidor
 └── docs/
     ├── DER/                  # Modelo de dados (N1 e visão N2/N3)
     ├── debitos-tecnicos/     # Registro de débitos técnicos
@@ -58,15 +60,33 @@ npm run dev
 ```
 
 Abra `http://localhost:5173`. O Vite encaminha as chamadas `/api` para o
-backend em `http://localhost:3001`. O backend vem pré-carregado com 2 setores,
-2 equipamentos e 2 técnicos de exemplo (seed em
-`backend/src/db/memoryDb.js`).
+backend em `http://localhost:3001`. Com o banco vazio, o backend insere 2
+setores, 2 equipamentos e 2 técnicos de exemplo (seed em
+`backend/src/db/seed.js`).
+
+### Banco de dados
+
+Não é preciso instalar PostgreSQL nem Docker. Sem a variável `DATABASE_URL`,
+o `npm start` sobe um PostgreSQL 18 local pelo pacote `embedded-postgres`
+(o binário vem no `npm ci`), na porta `54329`, com os dados em
+`backend/.pgdata`. Os dados sobrevivem ao reinício do servidor.
+
+- **Zerar o banco:** pare o backend e apague `backend/.pgdata`.
+- **Usar outro PostgreSQL:** defina `DATABASE_URL`
+  (ex.: `postgres://usuario:senha@host:5432/helpdesk`).
+- **Outra porta local:** defina `PG_LOCAL_PORT`.
+- **Mudar o schema:** crie um novo arquivo em `backend/migrations/`
+  (`002_...sql`); ele é aplicado no próximo `npm start`.
+
+Os testes (`npm test`) sobem um PostgreSQL descartável por arquivo de teste e
+não tocam em `backend/.pgdata`.
 
 Para servir tudo pelo backend (sem o Vite), gere o build com `npm run build`
 em `frontend/`; o backend serve `frontend/dist` em `http://localhost:3001`.
 
 Erros da API vêm como `{ erro }`: `422` para violação de regra de negócio ou
-payload inválido, `404` para setor, equipamento, técnico ou chamado inexistente.
+payload inválido (inclusive dado recusado pelo banco), `404` para setor,
+equipamento, técnico ou chamado inexistente.
 
 ## Integração contínua
 
