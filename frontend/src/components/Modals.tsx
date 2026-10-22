@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ModalDialog } from './ModalDialog'
 import { X, Plus, Trash2 } from 'lucide-react';
 import type { Equipamento, Setor, Chamado, Urgencia, TipoChamado, ConclusaoChamado } from '../types';
@@ -318,11 +318,13 @@ export const ModalConcluirChamado: React.FC<ModalConcluirChamadoProps> = ({
   const [trocas, setTrocas] = useState<{ id: string; pecaNome: string; quantidade: string; observacao: string }[]>([])
   const [erro, setErro] = useState('')
   const [loading, setLoading] = useState(false);
+  const proximaPecaId = useRef(0)
 
   if (!chamado) return null;
 
   const handleAdicionarPeca = () => {
-    setTrocas((atuais) => [...atuais, { id: crypto.randomUUID(), pecaNome: '', quantidade: '1', observacao: '' }])
+    const id = String(proximaPecaId.current++)
+    setTrocas((atuais) => [...atuais, { id, pecaNome: '', quantidade: '1', observacao: '' }])
   }
 
   const handleAlterarPeca = (id: string, campo: 'pecaNome' | 'quantidade' | 'observacao', valor: string) => {
