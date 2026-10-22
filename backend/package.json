@@ -7,11 +7,13 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
     "cors": "^2.8.5",
+    "embedded-postgres": "18.4.0-beta.17",
+    "express": "^4.19.2",
+    "pg": "8.23.1",
     "uuid": "^9.0.1"
   }
 }
