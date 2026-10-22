@@ -38,4 +38,37 @@ export interface Chamado {
   laudo?: string;
   causaRaiz?: string;
   pecasTrocadas?: string;
+  trocas?: TrocaPeca[];
+}
+
+export interface TrocaInput {
+  pecaNome: string
+  quantidade?: number
+  observacao?: string
+}
+
+export interface ConclusaoChamado {
+  laudo?: string
+  causaRaiz?: string
+  pecasTrocadas?: string
+  trocas: TrocaInput[]
+}
+
+export interface TrocaPeca {
+  id: string
+  pecaNome: string
+  quantidade: number
+  observacao: string | null
+  registradoEm: string
+}
+
+export interface TrocaHistorico extends TrocaPeca {
+  chamado: {
+    id: string
+    tipo: TipoChamado
+    urgencia: Urgencia
+    causaRaiz: string | null
+    finalizadoEm: string
+  }
+  tecnico: { id: string; nome: string } | null
 }

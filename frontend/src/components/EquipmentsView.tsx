@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, Layers, Plus } from 'lucide-react';
+import { Cpu, Layers, Plus, History } from 'lucide-react';
 import type { Equipamento, Setor, Chamado } from '../types';
 
 interface EquipmentsViewProps {
@@ -8,6 +8,7 @@ interface EquipmentsViewProps {
   chamados: Chamado[];
   onOpenNovoEquipamento: () => void;
   onOpenNovoSetor: () => void;
+  onOpenHistorico: (equipamento: Equipamento) => void;
   onAbrirChamadoParaEquipamento: (equipamentoId: string) => void;
 }
 
@@ -17,6 +18,7 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
   chamados,
   onOpenNovoEquipamento,
   onOpenNovoSetor,
+  onOpenHistorico,
   onAbrirChamadoParaEquipamento,
 }) => {
   return (
@@ -130,7 +132,11 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
                 </div>
               </div>
 
-              <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+              <div className="equipment-actions" style={{ borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => onOpenHistorico(eq)}>
+                  <History size={14} aria-hidden="true" />
+                  <span>Histórico de peças</span>
+                </button>
                 <button
                   className="btn btn-secondary btn-sm"
                   onClick={() => onAbrirChamadoParaEquipamento(eq.id)}

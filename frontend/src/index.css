@@ -704,3 +704,143 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Conclusão com peças e histórico por equipamento */
+.parts-dialog {
+  margin: auto;
+  padding: 0;
+  max-height: calc(100dvh - 2rem);
+  max-width: min(600px, calc(100vw - 2rem));
+  overflow-y: auto;
+  color: var(--text-main);
+}
+
+.parts-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.parts-dialog .modal-header,
+.parts-dialog .modal-actions {
+  position: sticky;
+  z-index: 1;
+}
+
+.parts-dialog .modal-header {
+  top: 0;
+  background: var(--bg-card);
+  gap: 0.75rem;
+}
+
+.parts-dialog .modal-header h3 {
+  overflow-wrap: anywhere;
+}
+
+.parts-dialog .modal-actions {
+  bottom: 0;
+  flex-wrap: wrap;
+}
+
+.parts-dialog button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.parts-dialog :focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.parts-fields {
+  border: 0;
+  min-width: 0;
+}
+
+.parts-editor,
+.part-editor-row,
+.parts-history-error {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.parts-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.part-editor-row {
+  border-top: 1px solid var(--border-light);
+  padding-top: 0.75rem;
+}
+
+.part-name-quantity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 0.75rem;
+}
+
+.parts-muted,
+.parts-history-body {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.parts-error {
+  color: var(--danger-text);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.parts-history-list {
+  list-style: none;
+}
+
+.parts-history-item {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.parts-history-item:first-child {
+  padding-top: 0;
+}
+
+.parts-history-details > div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.parts-history-details dt {
+  font-weight: 600;
+}
+
+.ticket-parts-list {
+  padding-left: 1.1rem;
+  margin-top: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.equipment-actions {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 480px) {
+  .part-name-quantity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .parts-dialog .modal-actions .btn {
+    white-space: normal;
+  }
+}

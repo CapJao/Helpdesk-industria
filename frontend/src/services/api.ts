@@ -1,4 +1,4 @@
-import type { Chamado, Equipamento, Setor, Tecnico } from '../types';
+import type { Chamado, Equipamento, Setor, Tecnico, ConclusaoChamado, TrocaHistorico } from '../types';
 
 const API_BASE = '/api';
 
@@ -44,6 +44,9 @@ export const api = {
       body: JSON.stringify(dados),
     }),
 
+  getHistoricoPecas: (equipamentoId: string, signal?: AbortSignal) =>
+    request<TrocaHistorico[]>(`/equipamentos/${encodeURIComponent(equipamentoId)}/pecas`, { signal }),
+
   getTecnicos: () => request<Tecnico[]>('/tecnicos'),
 
   getChamados: () => request<Chamado[]>('/chamados'),
@@ -64,7 +67,7 @@ export const api = {
       body: JSON.stringify({ tecnicoId }),
     }),
 
-  concluirChamado: (chamadoId: string, dados: { laudo?: string; causaRaiz?: string; pecasTrocadas?: string } = {}) =>
+  concluirChamado: (chamadoId: string, dados: ConclusaoChamado) =>
     request<Chamado>(`/chamados/${chamadoId}/concluir`, {
       method: 'PATCH',
       body: JSON.stringify(dados),
