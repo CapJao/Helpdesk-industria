@@ -40,7 +40,10 @@ router.patch(
 );
 router.patch(
   "/chamados/:id/concluir",
-  asHandler((req) => service.concluirChamado({ chamadoId: req.params.id }))
+  asHandler((req) => {
+    const { laudo, causaRaiz, pecasTrocadas } = req.body || {};
+    return service.concluirChamado({ chamadoId: req.params.id, laudo, causaRaiz, pecasTrocadas });
+  })
 );
 
 module.exports = router;

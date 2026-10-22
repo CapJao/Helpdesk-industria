@@ -11,8 +11,9 @@ app.use(express.json());
 
 app.use("/api", routes);
 
-// Serve o frontend estático (build simples em /frontend)
-app.use(express.static(path.join(__dirname, "..", "..", "frontend")));
+// Serve o build do frontend (gerado com `npm run build` em /frontend)
+const FRONTEND_DIST = path.join(__dirname, "..", "..", "frontend", "dist");
+app.use(express.static(FRONTEND_DIST));
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
