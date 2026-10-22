@@ -1,22 +1,18 @@
 # Contrato: trocas de peça e histórico por equipamento
 
-- **Status:** proposta, aguardando o frontend
+- **Status:** acordado e implementado (frontend no PR #6, backend no PR seguinte)
 - **Data:** 2026-10-22
 - **Relacionado:** FR-12, FR-13, DT-01
 
-O banco já guarda as trocas (`trocas_peca`, ligada ao chamado e ao
-equipamento), e o backend já grava a conclusão e as trocas na mesma transação.
-**Nenhuma rota abaixo existe ainda.** Elas só serão implementadas depois que o
-frontend concordar com este formato, ou propuser outro.
-
-Até lá, a conclusão continua aceitando `pecasTrocadas` como texto livre, como
-o modal faz hoje.
+As trocas ficam em `trocas_peca`, ligada ao chamado e ao equipamento. A
+conclusão e as trocas são gravadas na mesma transação.
 
 ## 1. Concluir chamado com trocas
 
 `PATCH /api/chamados/:id/concluir`
 
-O que muda: entra a lista `trocas` no lugar do texto livre `pecasTrocadas`.
+As peças trocadas vão como a lista estruturada `trocas` (o texto livre
+`pecasTrocadas` continua aceito; ver "Campo legado" abaixo).
 
 ```json
 {
@@ -54,13 +50,19 @@ interface Chamado {
 ```
 
 **Erros** (corpo `{ "erro": "mensagem" }`):
-- `422`: peça sem nome, quantidade menor que 1 ou chamado já concluído. Nesse
+- `422`: peça sem nome ou com mais de 100 caracteres, quantidade fora de
+  1 a 2147483647, observação com mais de 500 caracteres ou chamado já concluído. Nesse
   caso **nada é gravado**: o chamado continua aberto e nenhuma troca é salva.
 - `404`: chamado inexistente.
 
-**Transição de `pecasTrocadas`:** o backend continua aceitando o texto livre
-enquanto o front migra. Depois que o modal enviar `trocas`, o campo sai do
-contrato.
+**Ordem das trocas:** as trocas do chamado voltam na ordem em que foram
+enviadas.
+
+**Campo legado `pecasTrocadas`:** o modal envia `trocas` e também um resumo em
+texto (`"2 × Rolamento 6205; 1 × Correia"`), e o backend grava os dois. O card
+mostra `trocas` quando a lista existe e cai no texto só para chamados antigos.
+O campo continua no contrato até a integração ser confirmada em uso; a remoção
+fica para depois.
 
 ## 2. Histórico de peças por equipamento
 
@@ -92,16 +94,22 @@ interface TrocaHistorico {
   "Nenhuma troca registrada", como pede o FR-13).
 - `404` para equipamento inexistente.
 
-## Perguntas para o frontend
+## Decisões de interface
 
-1. **Modal de conclusão:** dá para trocar o campo de texto "Peças trocadas" por
-   uma lista de linhas (nome + quantidade, com botão de adicionar e remover)?
-2. **Onde mostrar o histórico:** um modal aberto a partir da linha do
-   equipamento em `EquipmentsView`, ou uma tela própria?
-3. **Card do chamado concluído:** mostrar as trocas como lista no lugar do
-   texto `Peças: ...`?
-4. **Causa raiz:** hoje é uma lista fixa no modal. Querem que o backend valide
-   essa lista (e devolva as opções num `GET`), ou ela continua livre?
+1. **Modal de conclusão:** o texto livre virou uma lista de peças (nome,
+   quantidade e observação opcional), com botões de adicionar e remover. Dá
+   para concluir sem peças.
+2. **Histórico:** modal aberto pelo botão "Histórico de peças" no card do
+   equipamento, no Parque Fabril.
+3. **Card do chamado concluído:** mostra as trocas como lista.
+4. **Causa raiz:** continua texto livre no backend, sem validação de lista. As
+   opções ficam só no `<select>` do modal. Revisitar se o MTBF ou algum
+   relatório precisar agrupar falhas por causa; nesse caso, o backend passa a
+   validar a lista e a devolver as opções num `GET`.
+
+## Fora deste contrato
+
+O MTBF (FR-14) não faz parte desta entrega e entra como etapa própria.
 
 ## Diferenças em relação ao `spec.md`
 

@@ -102,12 +102,13 @@ Esses comandos também podem ser executados localmente nas pastas
 | GET | `/api/setores` | Lista setores |
 | POST | `/api/setores` | Cria setor `{ nome }` |
 | GET | `/api/equipamentos` | Lista equipamentos (com setor) |
+| GET | `/api/equipamentos/:id/pecas` | Histórico de peças trocadas no equipamento, da mais recente para a mais antiga |
 | POST | `/api/equipamentos` | Cria equipamento `{ nome, setorId, codigoPatrimonio }` |
 | GET | `/api/tecnicos` | Lista técnicos + contagem de chamados "Alta" abertos |
 | GET | `/api/chamados` | Lista chamados priorizados (filtros: `status`, `urgencia`, `tecnicoId`) |
 | POST | `/api/chamados` | Abre chamado `{ equipamentoId, urgencia, descricao, tipo }` |
 | PATCH | `/api/chamados/:id/atribuir` | Atribui técnico `{ tecnicoId }` — aplica a RN crítica |
-| PATCH | `/api/chamados/:id/concluir` | Conclui o chamado `{ laudo, causaRaiz, pecasTrocadas }` (todos opcionais; chamado já concluído retorna 422) |
+| PATCH | `/api/chamados/:id/concluir` | Conclui o chamado `{ laudo, causaRaiz, trocas: [{ pecaNome, quantidade?, observacao? }], pecasTrocadas }` (todos opcionais); conclusão e trocas gravadas na mesma transação; chamado já concluído ou peça inválida retorna 422 |
 
 Coleção Postman pronta para importar: `docs/handoff/postman_collection.json`.
 
