@@ -2,6 +2,7 @@ const { randomUUID } = require("crypto");
 const db = require("../db/memoryDb");
 
 const URGENCIAS = ["Baixa", "Media", "Alta"];
+const TIPOS = ["Corretiva", "Preventiva"];
 const STATUS_ABERTOS = ["Aberto", "Em Andamento"];
 const LIMITE_CHAMADOS_ALTA_POR_TECNICO = 2;
 
@@ -13,11 +14,27 @@ class RegraDeNegocioError extends Error {
   }
 }
 
+class NaoEncontradoError extends RegraDeNegocioError {
+  constructor(message) {
+    super(message);
+    this.name = "NaoEncontradoError";
+    this.statusCode = 404;
+  }
+}
+
+function comSetor(equipamento) {
+  return {
+    ...equipamento,
+    setor: db.setores.find((s) => s.id === equipamento.setorId) || null,
+  };
+}
+
+function comCarga(tecnico) {
+  return { ...tecnico, chamadosAltaAbertos: contarChamadosAltaAbertos(tecnico.id) };
+}
+
 function listarEquipamentos() {
-  return db.equipamentos.map((e) => ({
-    ...e,
-    setor: db.setores.find((s) => s.id === e.setorId) || null,
-  }));
+  return db.equipamentos.map(comSetor);
 }
 
 function criarEquipamento({ nome, setorId, codigoPatrimonio }) {
@@ -25,11 +42,11 @@ function criarEquipamento({ nome, setorId, codigoPatrimonio }) {
     throw new RegraDeNegocioError("nome e setorId são obrigatórios.");
   }
   const setor = db.setores.find((s) => s.id === setorId);
-  if (!setor) throw new RegraDeNegocioError("Setor não encontrado.");
+  if (!setor) throw new NaoEncontradoError("Setor não encontrado.");
 
   const equipamento = { id: randomUUID(), nome, setorId, codigoPatrimonio };
   db.equipamentos.push(equipamento);
-  return equipamento;
+  return comSetor(equipamento);
 }
 
 function listarSetores() {
@@ -44,10 +61,7 @@ function criarSetor({ nome }) {
 }
 
 function listarTecnicos() {
-  return db.tecnicos.map((t) => ({
-    ...t,
-    chamadosAltaAbertos: contarChamadosAltaAbertos(t.id),
-  }));
+  return db.tecnicos.map(comCarga);
 }
 
 function contarChamadosAltaAbertos(tecnicoId) {
@@ -76,10 +90,12 @@ function listarChamados({ status, urgencia, tecnicoId } = {}) {
 }
 
 function enriquecerChamado(chamado) {
+  const equipamento = db.equipamentos.find((e) => e.id === chamado.equipamentoId);
+  const tecnico = db.tecnicos.find((t) => t.id === chamado.tecnicoId);
   return {
     ...chamado,
-    equipamento: db.equipamentos.find((e) => e.id === chamado.equipamentoId) || null,
-    tecnico: db.tecnicos.find((t) => t.id === chamado.tecnicoId) || null,
+    equipamento: equipamento ? comSetor(equipamento) : null,
+    tecnico: tecnico ? comCarga(tecnico) : null,
   };
 }
 
@@ -90,15 +106,18 @@ function abrirChamado({ equipamentoId, urgencia, descricao, tipo }) {
   if (!URGENCIAS.includes(urgencia)) {
     throw new RegraDeNegocioError(`urgencia deve ser uma de: ${URGENCIAS.join(", ")}.`);
   }
+  if (tipo !== undefined && !TIPOS.includes(tipo)) {
+    throw new RegraDeNegocioError(`tipo deve ser um de: ${TIPOS.join(", ")}.`);
+  }
   const equipamento = db.equipamentos.find((e) => e.id === equipamentoId);
-  if (!equipamento) throw new RegraDeNegocioError("Equipamento não encontrado.");
+  if (!equipamento) throw new NaoEncontradoError("Equipamento não encontrado.");
 
   const chamado = {
     id: randomUUID(),
     equipamentoId,
     urgencia,
     descricao: descricao || "",
-    tipo: tipo === "Preventiva" ? "Preventiva" : "Corretiva",
+    tipo: tipo || "Corretiva",
     status: "Aberto",
     tecnicoId: null,
     criadoEm: new Date().toISOString(),
@@ -115,10 +134,10 @@ function abrirChamado({ equipamentoId, urgencia, descricao, tipo }) {
  */
 function atribuirChamado({ chamadoId, tecnicoId }) {
   const chamado = db.chamados.find((c) => c.id === chamadoId);
-  if (!chamado) throw new RegraDeNegocioError("Chamado não encontrado.");
+  if (!chamado) throw new NaoEncontradoError("Chamado não encontrado.");
 
   const tecnico = db.tecnicos.find((t) => t.id === tecnicoId);
-  if (!tecnico) throw new RegraDeNegocioError("Técnico não encontrado.");
+  if (!tecnico) throw new NaoEncontradoError("Técnico não encontrado.");
 
   if (!STATUS_ABERTOS.includes(chamado.status)) {
     throw new RegraDeNegocioError(
@@ -141,17 +160,29 @@ function atribuirChamado({ chamadoId, tecnicoId }) {
   return enriquecerChamado(chamado);
 }
 
-function concluirChamado({ chamadoId }) {
+/**
+ * Fecha o chamado registrando o laudo técnico. Laudo, causa raiz e peças
+ * trocadas alimentam o histórico de peças e o MTBF previstos para a N2.
+ */
+function concluirChamado({ chamadoId, laudo, causaRaiz, pecasTrocadas }) {
   const chamado = db.chamados.find((c) => c.id === chamadoId);
-  if (!chamado) throw new RegraDeNegocioError("Chamado não encontrado.");
+  if (!chamado) throw new NaoEncontradoError("Chamado não encontrado.");
+  if (chamado.status === "Concluído") {
+    throw new RegraDeNegocioError("Chamado já está concluído.");
+  }
   chamado.status = "Concluído";
   chamado.finalizadoEm = new Date().toISOString();
+  chamado.laudo = laudo || "";
+  chamado.causaRaiz = causaRaiz || "";
+  chamado.pecasTrocadas = pecasTrocadas || "";
   return enriquecerChamado(chamado);
 }
 
 module.exports = {
   RegraDeNegocioError,
+  NaoEncontradoError,
   URGENCIAS,
+  TIPOS,
   listarEquipamentos,
   criarEquipamento,
   listarSetores,
