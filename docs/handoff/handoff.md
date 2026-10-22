@@ -1,9 +1,9 @@
-# Documento de Handoff — N1 Helpdesk de Manutenção Industrial
+# Documento de Handoff — Helpdesk de Manutenção Industrial
 
 Este documento existe para a equipe que receber o projeto avaliar a
 viabilidade de recepção e dar continuidade nas evoluções N2/N3.
 
-## 1. O que foi entregue na N1
+## 1. O que está implementado
 
 - Cadastro de equipamentos e setores.
 - Abertura de chamados com nível de urgência (Alta / Média / Baixa) e tipo
@@ -12,17 +12,19 @@ viabilidade de recepção e dar continuidade nas evoluções N2/N3.
 - **RN crítica implementada e testada:** um técnico não pode ter mais de 2
   chamados "Alta" abertos simultaneamente (`backend/src/services/chamadoService.js`).
 - Frontend React + TypeScript + Vite consumindo a API.
-- CI no GitHub Actions com teste da RN crítica do backend e lint/build do frontend.
+- Kanban com arraste por mouse/toque, ações por teclado e detalhes completos do chamado.
+- PostgreSQL com migrations versionadas, banco local persistente e seed sem duplicação.
+- Conclusão de chamados com laudo e peças gravados na mesma transação.
+- Histórico de peças por equipamento, com chamado de origem e técnico.
+- CI no GitHub Actions com testes do backend e lint, build e testes de navegador do frontend.
 
 ## 2. O que NÃO foi feito nesta entrega (fica para N2/N3)
 
-- Histórico de troca de peças por máquina.
 - Cálculo de MTBF (tempo médio entre falhas).
 - Agendamento automático de preventivas.
-- Persistência real em banco de dados (ver DT-01 em `docs/debitos-tecnicos`).
 - Autenticação/autorização.
-- Cobertura de testes ainda limitada à RN crítica do backend; faltam testes dos
-  demais endpoints e fluxos da interface (ver DT-03).
+- Ampliar a cobertura automatizada para todos os cadastros e cenários de falha;
+  os testes atuais não cobrem todos os endpoints e estados possíveis (ver DT-03).
 - Deploy contínuo e ambiente de hospedagem não configurados (ver DT-07).
 
 ## 3. Como rodar e onde mexer
@@ -31,19 +33,19 @@ Ver `README.md` na raiz do repositório para instruções de execução.
 
 Pontos de extensão sugeridos para a N2:
 
-- `backend/src/db/memoryDb.js` → trocar por client de banco real (ex.:
-  Prisma + PostgreSQL), mantendo a mesma assinatura das funções em
-  `chamadoService.js` para minimizar o blast radius da migração.
-- `chamadoService.js` → adicionar `TrocaPeca` e o cálculo de MTBF como novo
-  módulo de serviço (`mtbfService.js`), consumindo o histórico de
-  `chamados` por `equipamentoId`.
+- `backend/src/db/` contém conexão, migrations, seed e PostgreSQL local.
+  Novas alterações do schema ficam em `backend/migrations/`.
+- `chamadoService.js` já registra trocas e consulta o histórico. O cálculo de
+  MTBF deve entrar como um serviço próprio, consumindo os chamados por
+  `equipamentoId`; seu contrato ainda precisa ser definido.
+- `docs/contratos/trocas-e-historico.md` documenta o contrato integrado de peças.
 - Rotas novas ficam em `backend/src/routes/`, seguindo o padrão de
   `asHandler` já existente para tratamento de erros de RN.
 
 ## 4. Débitos técnicos herdados
 
 Ver lista completa e priorizada em `docs/debitos-tecnicos/debitos-tecnicos.md`.
-Recomenda-se avaliar DT-01, DT-03 e DT-07 antes de iniciar a N2, pois
+DT-01 está quitado. Recomenda-se avaliar DT-03 e DT-07 nas próximas etapas, pois
 impactam diretamente a confiabilidade do cálculo de MTBF.
 
 ## 5. Contatos / papéis na N1
@@ -58,6 +60,6 @@ Ao decidir se recebe o projeto, a próxima equipe deve considerar:
 - [ ] O código roda localmente seguindo o README, sem passos faltando?
 - [ ] A RN crítica está de fato implementada e testável?
 - [ ] Os débitos técnicos são aceitáveis para o próximo ciclo, ou algum
-      deles precisa ser pago antes de novas features (ex.: trocar
-      persistência antes de implementar MTBF)?
+      deles precisa ser pago antes de novas features (ex.: controle de acesso
+      antes de disponibilizar o sistema a usuários externos)?
 - [ ] A cobertura de testes é suficiente para evoluir com segurança?

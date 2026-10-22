@@ -844,3 +844,216 @@ body {
     white-space: normal;
   }
 }
+
+/* Mantém a página dentro do viewport, inclusive com conteúdo longo. */
+.main-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.kanban-board {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.kanban-column,
+.ticket-card,
+.assign-select,
+.brand-wrapper,
+.brand-title {
+  min-width: 0;
+}
+
+.ticket-card,
+.parts-dialog {
+  overflow-wrap: anywhere;
+}
+
+.form-textarea {
+  resize: vertical;
+}
+
+.equipment-view-header {
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .kanban-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .app-navbar,
+  .nav-tabs-bar {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .navbar-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .brand-title,
+  .navbar-actions {
+    flex-wrap: wrap;
+  }
+
+  .nav-tabs-container {
+    gap: 0.75rem;
+    overflow-x: auto;
+  }
+
+  .tab-btn {
+    flex-shrink: 0;
+  }
+
+  .main-container {
+    padding: 0 1rem;
+    margin-top: 1rem;
+  }
+
+  .search-input-box {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+
+  .filter-select {
+    max-width: 100%;
+  }
+
+  .assign-controls {
+    flex-wrap: wrap;
+  }
+
+  .assign-select {
+    flex-basis: 100%;
+  }
+
+  .tecnicos-cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toast-wrapper {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    max-width: none;
+  }
+}
+
+.kanban-instructions {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.ticket-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 28px;
+  min-height: 32px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.ticket-drag-handle:active {
+  cursor: grabbing;
+}
+
+.ticket-card:focus-visible,
+.ticket-drag-handle:focus-visible,
+.ticket-details-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.ticket-details-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.ticket-details-link svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.ticket-card {
+  cursor: pointer;
+}
+
+.ticket-card-dragging {
+  opacity: 0.45;
+}
+
+.kanban-drop-target {
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+  background: var(--primary-subtle);
+}
+
+.kanban-drag-preview {
+  position: fixed;
+  z-index: 200;
+  max-width: 230px;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.ticket-move-button {
+  align-self: flex-start;
+}
+
+.ticket-move-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.ticket-move-actions .btn {
+  white-space: normal;
+}
+
+.chamado-details section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.chamado-details p {
+  white-space: pre-wrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

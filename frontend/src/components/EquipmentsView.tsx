@@ -23,7 +23,7 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
 }) => {
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+      <div className="equipment-view-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
         <div>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-main)' }}>
             Parque Fabril & Setores
@@ -45,7 +45,7 @@ export const EquipmentsView: React.FC<EquipmentsViewProps> = ({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1rem' }}>
         {equipamentos.map((eq) => {
           const chamadosAtivo = chamados.filter((c) => c.equipamentoId === eq.id);
           const abertos = chamadosAtivo.filter((c) => c.status !== 'Concluído').length;

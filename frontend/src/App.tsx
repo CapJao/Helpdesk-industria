@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Kanban, Users, Cpu } from 'lucide-react';
 import { api, ApiError } from './services/api';
 import type { Chamado, Equipamento, Setor, Tecnico, Urgencia, TipoChamado, ConclusaoChamado } from './types';
+import { ChamadoDetailsModal } from './components/ChamadoDetailsModal'
+import { AssignChamadoModal } from './components/AssignChamadoModal'
 import { PartsHistoryModal } from './components/PartsHistoryModal'
 import { Navbar } from './components/Navbar';
 import { KpiCards } from './components/KpiCards';
@@ -28,6 +30,9 @@ export function App() {
   const [isNovoEquipamentoOpen, setIsNovoEquipamentoOpen] = useState(false);
   const [isNovoSetorOpen, setIsNovoSetorOpen] = useState(false);
   const [concluirTargetChamado, setConcluirTargetChamado] = useState<Chamado | null>(null);
+  const [detalhesChamadoId, setDetalhesChamadoId] = useState<string | null>(null)
+  const [atribuirTargetChamado, setAtribuirTargetChamado] = useState<Chamado | null>(null)
+  const detalhesChamado = chamados.find((chamado) => chamado.id === detalhesChamadoId)
   const [historicoEquipamento, setHistoricoEquipamento] = useState<Equipamento | null>(null)
   const [initialEquipamentoId, setInitialEquipamentoId] = useState<string | undefined>();
 
@@ -73,6 +78,7 @@ export function App() {
   const handleAtribuir = async (chamadoId: string, tecnicoId: string) => {
     try {
       const atualizado = await api.atribuirChamado(chamadoId, tecnicoId);
+      setChamados((atuais) => atuais.map((chamado) => chamado.id === atualizado.id ? atualizado : chamado))
       await carregarDados();
       addToast(
         'success',
@@ -85,11 +91,13 @@ export function App() {
       } else {
         addToast('error', 'Falha na Atribuição', err.message || 'Erro desconhecido');
       }
+      throw err
     }
   };
 
   const handleConcluir = async (chamadoId: string, dados: ConclusaoChamado) => {
-    await api.concluirChamado(chamadoId, dados)
+    const atualizado = await api.concluirChamado(chamadoId, dados)
+    setChamados((atuais) => atuais.map((chamado) => chamado.id === atualizado.id ? atualizado : chamado))
     await carregarDados()
     addToast('success', 'Chamado Concluído', 'Ordem de serviço finalizada e vaga liberada para o técnico.')
   }
@@ -100,37 +108,25 @@ export function App() {
     tipo: TipoChamado;
     descricao: string;
   }) => {
-    try {
-      await api.createChamado(dados);
-      await carregarDados();
-      addToast(
-        dados.urgencia === 'Alta' ? 'warning' : 'success',
-        dados.urgencia === 'Alta' ? 'Chamado Crítico Aberto' : 'Chamado Criado',
-        `Urgência: ${dados.urgencia}. Adicionado à fila de triagem.`
-      );
-    } catch (err: any) {
-      addToast('error', 'Erro ao Criar Chamado', err.message);
-    }
+    await api.createChamado(dados);
+    await carregarDados();
+    addToast(
+      dados.urgencia === 'Alta' ? 'warning' : 'success',
+      dados.urgencia === 'Alta' ? 'Chamado Crítico Aberto' : 'Chamado Criado',
+      `Urgência: ${dados.urgencia}. Adicionado à fila de triagem.`
+    );
   };
 
   const handleCreateEquipamento = async (dados: { nome: string; setorId: string; codigoPatrimonio?: string }) => {
-    try {
-      const eq = await api.createEquipamento(dados);
-      await carregarDados();
-      addToast('success', 'Equipamento Salvo', `${eq.nome} adicionado ao parque fabril.`);
-    } catch (err: any) {
-      addToast('error', 'Erro ao Criar Equipamento', err.message);
-    }
+    const eq = await api.createEquipamento(dados);
+    await carregarDados();
+    addToast('success', 'Equipamento Salvo', `${eq.nome} adicionado ao parque fabril.`);
   };
 
   const handleCreateSetor = async (nome: string) => {
-    try {
-      const s = await api.createSetor(nome);
-      await carregarDados();
-      addToast('success', 'Setor Criado', `Linha/setor ${s.nome} cadastrado.`);
-    } catch (err: any) {
-      addToast('error', 'Erro ao Criar Setor', err.message);
-    }
+    const s = await api.createSetor(nome);
+    await carregarDados();
+    addToast('success', 'Setor Criado', `Linha/setor ${s.nome} cadastrado.`);
   };
 
   const handleAbrirParaEquipamento = (eqId: string) => {
@@ -186,6 +182,8 @@ export function App() {
             tecnicos={tecnicos}
             setores={setores}
             onAtribuir={handleAtribuir}
+            onOpenDetalhes={(chamado) => setDetalhesChamadoId(chamado.id)}
+            onOpenAtribuir={setAtribuirTargetChamado}
             onOpenConcluir={(c) => setConcluirTargetChamado(c)}
           />
         )}
@@ -212,6 +210,29 @@ export function App() {
       </main>
 
       {/* Modais */}
+      {detalhesChamado && (
+        <ChamadoDetailsModal
+          chamado={detalhesChamado}
+          onClose={() => setDetalhesChamadoId(null)}
+          onAtribuir={() => {
+            setDetalhesChamadoId(null)
+            setAtribuirTargetChamado(detalhesChamado)
+          }}
+          onConcluir={() => {
+            setDetalhesChamadoId(null)
+            setConcluirTargetChamado(detalhesChamado)
+          }}
+        />
+      )}
+      {atribuirTargetChamado && (
+        <AssignChamadoModal
+          key={atribuirTargetChamado.id}
+          chamado={atribuirTargetChamado}
+          tecnicos={tecnicos}
+          onClose={() => setAtribuirTargetChamado(null)}
+          onSubmit={handleAtribuir}
+        />
+      )}
       <ModalNovoChamado
         isOpen={isNovoChamadoOpen}
         equipamentos={equipamentos}

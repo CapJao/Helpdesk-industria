@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Search, Clock, Check, UserCheck } from 'lucide-react';
-import type { Chamado, Setor, Tecnico } from '../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { Search, Clock, Check, UserCheck, GripVertical, MoveRight, Eye } from 'lucide-react';
+import type { Chamado, Setor, Tecnico, StatusChamado } from '../types';
 
 interface KanbanBoardProps {
   chamados: Chamado[];
@@ -8,6 +8,8 @@ interface KanbanBoardProps {
   setores: Setor[];
   onAtribuir: (chamadoId: string, tecnicoId: string) => Promise<void>;
   onOpenConcluir: (chamado: Chamado) => void;
+  onOpenDetalhes: (chamado: Chamado) => void
+  onOpenAtribuir: (chamado: Chamado) => void
 }
 
 function formatRelativeTime(isoDate: string): string {
@@ -28,6 +30,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   setores,
   onAtribuir,
   onOpenConcluir,
+  onOpenDetalhes,
+  onOpenAtribuir,
 }) => {
   const [search, setSearch] = useState('');
   const [urgenciaFiltro, setUrgenciaFiltro] = useState('');
@@ -35,6 +39,90 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [setorFiltro, setSetorFiltro] = useState('');
   const [selectedTecnicos, setSelectedTecnicos] = useState<{ [key: string]: string }>({});
   const [loadingAtribuir, setLoadingAtribuir] = useState<string | null>(null);
+
+  const [moverId, setMoverId] = useState<string | null>(null)
+  const [erroAtribuicao, setErroAtribuicao] = useState('')
+  const [avisoMovimento, setAvisoMovimento] = useState('')
+  const [destinoArraste, setDestinoArraste] = useState<StatusChamado | null>(null)
+  const [arrastando, setArrastando] = useState<{ chamado: Chamado; x: number; y: number } | null>(null)
+  const ignorarClique = useRef(false)
+  const dragRef = useRef<{
+    chamado: Chamado; pointerId: number; origemX: number; origemY: number
+    x: number; y: number; ativo: boolean; frame?: number
+  } | null>(null)
+
+  useEffect(() => () => {
+    if (dragRef.current?.frame) cancelAnimationFrame(dragRef.current.frame)
+  }, [])
+
+  const handleMover = (chamado: Chamado, destino: StatusChamado | null) => {
+    setMoverId(null)
+    setErroAtribuicao('')
+    if (!destino || destino === chamado.status || chamado.status === 'Concluído') return
+    if (destino === 'Em Andamento') {
+      onOpenAtribuir(chamado)
+      return
+    }
+    if (destino === 'Concluído') {
+      onOpenConcluir(chamado)
+      return
+    }
+    setAvisoMovimento('Chamados em atendimento não podem voltar para a triagem.')
+  }
+
+  const obterDestino = (x: number, y: number) => {
+    const column = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-status]')
+    return (column?.dataset.status as StatusChamado | undefined) ?? null
+  }
+
+  const handleAutoScroll = () => {
+    const drag = dragRef.current
+    if (!drag?.ativo) return
+    const deslocamento = drag.y < 80 ? -12 : drag.y > window.innerHeight - 80 ? 12 : 0
+    if (deslocamento) {
+      window.scrollBy(0, deslocamento)
+      setDestinoArraste(obterDestino(drag.x, drag.y))
+    }
+    drag.frame = requestAnimationFrame(handleAutoScroll)
+  }
+
+  const handleDragStart = (event: React.PointerEvent<HTMLButtonElement>, chamado: Chamado) => {
+    if (event.button !== 0 || chamado.status === 'Concluído' || loadingAtribuir) return
+    ignorarClique.current = false
+    dragRef.current = {
+      chamado, pointerId: event.pointerId, origemX: event.clientX, origemY: event.clientY,
+      x: event.clientX, y: event.clientY, ativo: false,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handleDragMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    drag.x = event.clientX
+    drag.y = event.clientY
+    if (!drag.ativo) {
+      if (Math.hypot(drag.x - drag.origemX, drag.y - drag.origemY) < 6) return
+      drag.ativo = true
+      setMoverId(null)
+      handleAutoScroll()
+    }
+    setArrastando({ chamado: drag.chamado, x: drag.x, y: drag.y })
+    setDestinoArraste(obterDestino(drag.x, drag.y))
+  }
+
+  const handleDragEnd = (event: React.PointerEvent<HTMLButtonElement>, cancelar = false) => {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    if (drag.frame) cancelAnimationFrame(drag.frame)
+    dragRef.current = null
+    setArrastando(null)
+    setDestinoArraste(null)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    if (!drag.ativo) return
+    ignorarClique.current = true
+    if (!cancelar) handleMover(drag.chamado, obterDestino(event.clientX, event.clientY))
+  }
 
   // Filtragem
   const filteredChamados = chamados.filter((c) => {
@@ -65,9 +153,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const handleAtribuirClick = async (chamado: Chamado) => {
     const tecId = selectedTecnicos[chamado.id] || chamado.tecnicoId || '';
     if (!tecId) return;
+    setErroAtribuicao('')
     try {
       setLoadingAtribuir(chamado.id);
       await onAtribuir(chamado.id, tecId);
+    } catch (error) {
+      setErroAtribuicao(error instanceof Error ? error.message : 'Não foi possível atribuir o chamado.')
     } finally {
       setLoadingAtribuir(null);
     }
@@ -80,8 +171,43 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     const tecSelecionado = selectedTecnicos[c.id] || c.tecnicoId || '';
 
     return (
-      <div key={c.id} className="ticket-card">
+      <article
+        key={c.id}
+        className={`ticket-card ${arrastando?.chamado.id === c.id ? 'ticket-card-dragging' : ''}`}
+        tabIndex={0}
+        aria-label={`Chamado ${c.id.slice(0, 8)}: ${c.equipamento?.nome ?? 'Equipamento'}`}
+        aria-describedby="kanban-instrucoes"
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest('button, select, input, textarea, a')) return
+          onOpenDetalhes(c)
+        }}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return
+          event.preventDefault()
+          onOpenDetalhes(c)
+        }}
+      >
         <div className="ticket-top">
+          {!isConcluido && (
+            <button
+              type="button"
+              className="ticket-drag-handle"
+              aria-label={`Arrastar chamado ${c.id.slice(0, 8)}`}
+              title="Arraste para outra coluna ou clique para escolher o destino"
+              disabled={loadingAtribuir === c.id}
+              onPointerDown={(event) => handleDragStart(event, c)}
+              onPointerMove={handleDragMove}
+              onPointerUp={(event) => handleDragEnd(event)}
+              onPointerCancel={(event) => handleDragEnd(event, true)}
+              onLostPointerCapture={(event) => handleDragEnd(event, true)}
+              onClick={() => {
+                if (ignorarClique.current) { ignorarClique.current = false; return }
+                setMoverId(moverId === c.id ? null : c.id)
+              }}
+            >
+              <GripVertical size={18} aria-hidden="true" />
+            </button>
+          )}
           <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
             <span className={`badge badge-${c.urgencia.toLowerCase()}`}>
               {c.urgencia}
@@ -94,7 +220,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         </div>
 
         <div>
-          <div className="ticket-equip-title">{c.equipamento?.nome || 'Equipamento'}</div>
+          <button type="button" className="ticket-equip-title ticket-details-link" onClick={() => onOpenDetalhes(c)}>
+            {c.equipamento?.nome || 'Equipamento'} <Eye size={14} aria-hidden="true" />
+          </button>
           <div className="ticket-sector-name">{c.equipamento?.setor?.nome || 'Setor'}</div>
         </div>
 
@@ -148,6 +276,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           <div className="assign-controls">
             <select
               className="assign-select"
+              aria-label={`Técnico do chamado ${c.id.slice(0, 8)}`}
               value={tecSelecionado}
               onChange={(e) => handleSelectTecnico(c.id, e.target.value)}
             >
@@ -185,7 +314,20 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             </button>
           </div>
         )}
-      </div>
+        {!isConcluido && (
+          <>
+            <button type="button" className="btn btn-secondary btn-sm ticket-move-button" aria-label="Mover chamado" aria-expanded={moverId === c.id} onClick={() => setMoverId(moverId === c.id ? null : c.id)}>
+              <MoveRight size={14} aria-hidden="true" /> Mover
+            </button>
+            {moverId === c.id && (
+              <div className="ticket-move-actions">
+                {c.status === 'Aberto' && <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleMover(c, 'Em Andamento')}>Mover para Em Atendimento</button>}
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleMover(c, 'Concluído')}>Mover para Concluídos</button>
+              </div>
+            )}
+          </>
+        )}
+      </article>
     );
   };
 
@@ -240,10 +382,18 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         </div>
       </div>
 
+      <p id="kanban-instrucoes" className="kanban-instructions">Clique em um cartão para ver os detalhes. Arraste pela alça ou use Mover para mudar de etapa.</p>
+      {erroAtribuicao && <p role="alert" className="parts-error">{erroAtribuicao}</p>}
+      <p role="status" className="sr-only">{avisoMovimento}</p>
+      {arrastando && (
+        <div className="kanban-drag-preview" aria-hidden="true" style={{ left: Math.min(arrastando.x + 12, Math.max(8, window.innerWidth - 242)), top: Math.min(arrastando.y + 12, window.innerHeight - 56) }}>
+          {arrastando.chamado.equipamento?.nome ?? 'Chamado'}
+        </div>
+      )}
       {/* Colunas do Kanban */}
       <div className="kanban-board">
         {/* Coluna 1: Abertos */}
-        <div className="kanban-column">
+        <div data-status="Aberto" className={`kanban-column ${destinoArraste === 'Aberto' ? 'kanban-drop-target' : ''}`}>
           <div className="column-header">
             <h3>Fila de Triagem</h3>
             <span className="column-count">{abertos.length}</span>
@@ -260,7 +410,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         </div>
 
         {/* Coluna 2: Em Andamento */}
-        <div className="kanban-column">
+        <div data-status="Em Andamento" className={`kanban-column ${destinoArraste === 'Em Andamento' ? 'kanban-drop-target' : ''}`}>
           <div className="column-header">
             <h3>Em Atendimento</h3>
             <span className="column-count">{emAndamento.length}</span>
@@ -277,7 +427,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         </div>
 
         {/* Coluna 3: Concluídos */}
-        <div className="kanban-column">
+        <div data-status="Concluído" className={`kanban-column ${destinoArraste === 'Concluído' ? 'kanban-drop-target' : ''}`}>
           <div className="column-header">
             <h3>Concluídos</h3>
             <span className="column-count">{concluidos.length}</span>

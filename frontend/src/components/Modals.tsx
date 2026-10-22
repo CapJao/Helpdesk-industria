@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ModalDialog } from './ModalDialog'
-import { X, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import type { Equipamento, Setor, Chamado, Urgencia, TipoChamado, ConclusaoChamado } from '../types';
 
 interface ModalNovoChamadoProps {
@@ -28,6 +28,7 @@ export const ModalNovoChamado: React.FC<ModalNovoChamadoProps> = ({
   const [tipo, setTipo] = useState<TipoChamado>('Corretiva');
   const [descricao, setDescricao] = useState('');
   const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState('')
 
   React.useEffect(() => {
     if (initialEquipamentoId) setEquipamentoId(initialEquipamentoId);
@@ -38,29 +39,26 @@ export const ModalNovoChamado: React.FC<ModalNovoChamadoProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return
+    setErro('')
     if (!equipamentoId) return;
     try {
       setLoading(true);
       await onSubmit({ equipamentoId, urgencia, tipo, descricao });
       setDescricao('');
       onClose();
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível salvar. Tente novamente.')
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>⚡ Abrir Ordem de Serviço</h3>
-          <button className="btn btn-secondary btn-sm" onClick={onClose} style={{ padding: '0.2rem', border: 'none' }}>
-            <X size={16} />
-          </button>
-        </div>
-
+    <ModalDialog title="Abrir Ordem de Serviço" onClose={onClose} busy={loading}>
         <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+          <fieldset className="modal-body parts-fields" disabled={loading}>
+            {erro && <p className="parts-error" role="alert">{erro}</p>}
             <div className="form-field">
               <label>Equipamento / Máquina *</label>
               <select
@@ -114,10 +112,10 @@ export const ModalNovoChamado: React.FC<ModalNovoChamadoProps> = ({
                 onChange={(e) => setDescricao(e.target.value)}
               />
             </div>
-          </div>
+          </fieldset>
 
           <div className="modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-secondary" disabled={loading} onClick={onClose}>
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -125,8 +123,7 @@ export const ModalNovoChamado: React.FC<ModalNovoChamadoProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalDialog>
   );
 };
 
@@ -147,6 +144,7 @@ export const ModalNovoEquipamento: React.FC<ModalNovoEquipamentoProps> = ({
   const [setorId, setSetorId] = useState(setores[0]?.id ?? '');
   const [codigoPatrimonio, setCodigoPatrimonio] = useState('');
   const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState('')
 
   React.useEffect(() => {
     if (setores.length && !setorId) setSetorId(setores[0].id);
@@ -156,6 +154,8 @@ export const ModalNovoEquipamento: React.FC<ModalNovoEquipamentoProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return
+    setErro('')
     if (!nome.trim() || !setorId) return;
     try {
       setLoading(true);
@@ -163,23 +163,18 @@ export const ModalNovoEquipamento: React.FC<ModalNovoEquipamentoProps> = ({
       setNome('');
       setCodigoPatrimonio('');
       onClose();
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível salvar. Tente novamente.')
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>⚙️ Cadastrar Equipamento</h3>
-          <button className="btn btn-secondary btn-sm" onClick={onClose} style={{ padding: '0.2rem', border: 'none' }}>
-            <X size={16} />
-          </button>
-        </div>
-
+    <ModalDialog title="Cadastrar Equipamento" onClose={onClose} busy={loading}>
         <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+          <fieldset className="modal-body parts-fields" disabled={loading}>
+            {erro && <p className="parts-error" role="alert">{erro}</p>}
             <div className="form-field">
               <label>Nome do Equipamento / Máquina *</label>
               <input
@@ -218,10 +213,10 @@ export const ModalNovoEquipamento: React.FC<ModalNovoEquipamentoProps> = ({
                 onChange={(e) => setCodigoPatrimonio(e.target.value)}
               />
             </div>
-          </div>
+          </fieldset>
 
           <div className="modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-secondary" disabled={loading} onClick={onClose}>
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -229,8 +224,7 @@ export const ModalNovoEquipamento: React.FC<ModalNovoEquipamentoProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalDialog>
   );
 };
 
@@ -247,34 +241,32 @@ export const ModalNovoSetor: React.FC<ModalNovoSetorProps> = ({
 }) => {
   const [nome, setNome] = useState('');
   const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState('')
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return
+    setErro('')
     if (!nome.trim()) return;
     try {
       setLoading(true);
       await onSubmit(nome.trim());
       setNome('');
       onClose();
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível salvar. Tente novamente.')
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>🏭 Cadastrar Novo Setor</h3>
-          <button className="btn btn-secondary btn-sm" onClick={onClose} style={{ padding: '0.2rem', border: 'none' }}>
-            <X size={16} />
-          </button>
-        </div>
-
+    <ModalDialog title="Cadastrar Novo Setor" onClose={onClose} busy={loading}>
         <form onSubmit={handleSubmit}>
-          <div className="modal-body">
+          <fieldset className="modal-body parts-fields" disabled={loading}>
+            {erro && <p className="parts-error" role="alert">{erro}</p>}
             <div className="form-field">
               <label>Nome do Setor / Linha *</label>
               <input
@@ -286,10 +278,10 @@ export const ModalNovoSetor: React.FC<ModalNovoSetorProps> = ({
                 required
               />
             </div>
-          </div>
+          </fieldset>
 
           <div className="modal-actions">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-secondary" disabled={loading} onClick={onClose}>
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -297,8 +289,7 @@ export const ModalNovoSetor: React.FC<ModalNovoSetorProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalDialog>
   );
 };
 
