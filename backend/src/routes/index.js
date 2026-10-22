@@ -3,14 +3,23 @@ const service = require("../services/chamadoService");
 
 const router = express.Router();
 
+// Classes 22 (dado inválido) e 23 (restrição violada) do Postgres: o banco
+// recusou algo que a validação do service deixou passar.
+function ehErroDeDadoDoBanco(err) {
+  return typeof err.code === "string" && /^2[23]/.test(err.code);
+}
+
 function asHandler(fn) {
-  return (req, res) => {
+  return async (req, res) => {
     try {
-      const result = fn(req, res);
+      const result = await fn(req, res);
       res.json(result);
     } catch (err) {
       if (err instanceof service.RegraDeNegocioError) {
         return res.status(err.statusCode).json({ erro: err.message });
+      }
+      if (ehErroDeDadoDoBanco(err)) {
+        return res.status(422).json({ erro: "Dados inválidos." });
       }
       console.error(err);
       res.status(500).json({ erro: "Erro interno." });
