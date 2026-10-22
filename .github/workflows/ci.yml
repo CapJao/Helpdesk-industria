@@ -56,3 +56,9 @@ jobs:
 
       - name: Gerar build
         run: npm run build
+
+      - name: Instalar navegador para os testes
+        run: npx playwright install --with-deps chromium
+
+      - name: Testar os fluxos da interface
+        run: npm run test:e2e

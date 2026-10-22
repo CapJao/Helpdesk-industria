@@ -5,9 +5,19 @@ cadastro de equipamentos e setores, abertura de chamados por nível de urgência
 e atribuição de chamados a técnicos, com fila priorizada e enforcement da
 regra de negócio crítica do time.
 
-> **Escopo desta entrega: N1.** Histórico de troca de peças, cálculo de MTBF e
-> agendamento automático de preventivas fazem parte da evolução N2/N3 (ver
-> `docs/debitos-tecnicos`).
+> **Escopo atual:** funcionalidades da N1, persistência em PostgreSQL e
+> registro/histórico de peças da evolução N2. Cálculo de MTBF, agendamento
+> automático de preventivas e autenticação ficam para as próximas etapas.
+
+## Quadro de chamados
+
+Clique no cartão para abrir equipamento, descrição, técnico, datas, laudo e
+peças. Para mudar de etapa, arraste pela alça ou use o botão **Mover**, também
+acessível por teclado e toque.
+
+- **Em Atendimento:** escolha o técnico e confirme a atribuição.
+- **Concluídos:** preencha o laudo e, se houver, as peças substituídas.
+- O cartão só muda após a confirmação da API. Concluídos não voltam para etapas anteriores.
 
 ## Regra de Negócio Crítica (N1)
 
@@ -91,7 +101,8 @@ equipamento, técnico ou chamado inexistente.
 ## Integração contínua
 
 O GitHub Actions valida o backend (`npm ci` e `npm test`) e o frontend
-(`npm ci`, `npm run lint` e `npm run build`) em cada push e pull request.
+(`npm ci`, `npm run lint`, `npm run build` e testes de interface com Playwright)
+em cada push e pull request.
 Esses comandos também podem ser executados localmente nas pastas
 `backend` e `frontend`, respectivamente.
 
@@ -146,3 +157,20 @@ código-fonte:
 O papel atribuído não é exclusivo: qualquer integrante pode e deve atuar em
 outras frentes quando necessário (ver `Matriz_de_Papeis_N1.docx` para o
 histórico real de contribuições).
+
+## Testes da interface
+
+Os testes de navegador usam respostas controladas da API para verificar os
+fluxos da interface sem depender do banco local. A suíte do backend usa
+PostgreSQL real e valida as regras e a persistência das rotas.
+
+```bash
+cd frontend
+npm ci
+npx playwright install chromium
+npm run test:e2e
+```
+
+O Playwright inicia um Vite separado na porta 5175. Os testes não alteram os
+dados de `backend/.pgdata`. No CI, o navegador e suas dependências são
+instalados antes da execução.
