@@ -62,6 +62,12 @@ backend em `http://localhost:3001`. O backend vem pré-carregado com 2 setores,
 2 equipamentos e 2 técnicos de exemplo (seed em
 `backend/src/db/memoryDb.js`).
 
+Para servir tudo pelo backend (sem o Vite), gere o build com `npm run build`
+em `frontend/`; o backend serve `frontend/dist` em `http://localhost:3001`.
+
+Erros da API vêm como `{ erro }`: `422` para violação de regra de negócio ou
+payload inválido, `404` para setor, equipamento, técnico ou chamado inexistente.
+
 ## Integração contínua
 
 O GitHub Actions valida o backend (`npm ci` e `npm test`) e o frontend
@@ -81,7 +87,7 @@ Esses comandos também podem ser executados localmente nas pastas
 | GET | `/api/chamados` | Lista chamados priorizados (filtros: `status`, `urgencia`, `tecnicoId`) |
 | POST | `/api/chamados` | Abre chamado `{ equipamentoId, urgencia, descricao, tipo }` |
 | PATCH | `/api/chamados/:id/atribuir` | Atribui técnico `{ tecnicoId }` — aplica a RN crítica |
-| PATCH | `/api/chamados/:id/concluir` | Conclui o chamado |
+| PATCH | `/api/chamados/:id/concluir` | Conclui o chamado `{ laudo, causaRaiz, pecasTrocadas }` (todos opcionais; chamado já concluído retorna 422) |
 
 Coleção Postman pronta para importar: `docs/handoff/postman_collection.json`.
 
