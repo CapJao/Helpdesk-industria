@@ -1,59 +1,57 @@
 # Helpdesk de Manutenção Industrial
 
-Sistema para controle de manutenção preventiva e corretiva do parque fabril:
-cadastro de equipamentos e setores, abertura de chamados por nível de urgência
-e atribuição de chamados a técnicos, com fila priorizada e enforcement da
-regra de negócio crítica do time.
+Aplicação web para acompanhar a manutenção do parque fabril. Reúne cadastro de
+setores e equipamentos, abertura e priorização de chamados, atribuição a
+técnicos e registro do serviço e das peças utilizadas na conclusão.
 
-> **Escopo atual:** funcionalidades da N1, persistência em PostgreSQL e
-> registro/histórico de peças da evolução N2. Cálculo de MTBF, agendamento
-> automático de preventivas e autenticação ficam para as próximas etapas.
+## Funcionalidades
 
-## Quadro de chamados
+- **Quadro Kanban:** acompanha chamados abertos, em andamento e concluídos.
+  Permite pesquisar por equipamento, patrimônio, descrição ou técnico e filtrar
+  por urgência, tipo e setor.
+- **Movimentação de chamados:** atribuição de técnico e conclusão pelo cartão,
+  por arraste, botão ou teclado. O cartão só muda após a confirmação da API;
+  chamados concluídos não voltam para etapas anteriores.
+- **Parque fabril:** cadastro e consulta de setores e equipamentos, contagem de
+  chamados ativos e acesso ao histórico de peças por equipamento.
+- **Técnicos:** exibe os chamados ativos e a carga de chamados de urgência alta.
+- **Conclusão e histórico:** registra laudo, causa raiz e peças substituídas
+  (nome, quantidade e observação). A conclusão e as peças são gravadas numa
+  única transação.
+- **Persistência:** PostgreSQL com migrations versionadas e dados de exemplo
+  inseridos apenas quando o banco está vazio.
 
-Clique no cartão para abrir equipamento, descrição, técnico, datas, laudo e
-peças. Para mudar de etapa, arraste pela alça ou use o botão **Mover**, também
-acessível por teclado e toque.
+### Regra de atribuição
 
-- **Em Atendimento:** escolha o técnico e confirme a atribuição.
-- **Concluídos:** preencha o laudo e, se houver, as peças substituídas.
-- O cartão só muda após a confirmação da API. Concluídos não voltam para etapas anteriores.
+Um técnico não pode ter mais de **2 chamados de urgência `Alta`** com status
+`Aberto` ou `Em Andamento` ao mesmo tempo. O backend aplica a regra dentro de
+uma transação, inclusive para atribuições concorrentes, e responde `422` quando
+o limite é excedido.
 
-## Regra de Negócio Crítica (N1)
+### O que ainda não está implementado
 
-> Um técnico não pode ter mais de **2 chamados com urgência "Alta"** abertos
-> (status `Aberto` ou `Em Andamento`) ao mesmo tempo.
+Chamados podem ser classificados como `Preventiva`, mas o cálculo de MTBF e o
+agendamento automático de manutenções preventivas ainda não fazem parte do
+sistema. Autenticação, autorização e deploy também estão fora do escopo atual.
 
-Implementada em `backend/src/services/chamadoService.js`, função
-`atribuirChamado`. Uma tentativa de atribuição que viole a regra retorna
-`HTTP 422` com mensagem explicativa — o frontend exibe essa mensagem ao
-usuário.
+## Tecnologias
 
-## Estrutura do repositório
+- **Frontend:** React, TypeScript, Vite e Playwright.
+- **Backend:** Node.js, Express e `pg`.
+- **Banco:** PostgreSQL 18 local via `embedded-postgres`, ou PostgreSQL externo.
+- **CI:** GitHub Actions; a configuração está em
+  [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
-```
-projeto/
-├── README.md
-├── frontend/           # React + TypeScript + Vite
-├── backend/            # API REST em Node.js/Express + PostgreSQL
-│   ├── migrations/     # schema do banco, um .sql por mudança
-│   └── src/
-│       ├── db/         # conexão, Postgres local, migrations e seed
-│       ├── services/   # regras de negócio (chamadoService.js)
-│       ├── routes/     # rotas HTTP
-│       ├── app.js      # app Express (usado também nos testes)
-│       └── server.js   # boot: banco + migrations + seed + servidor
-└── docs/
-    ├── DER/                  # Modelo de dados (N1 e visão N2/N3)
-    ├── debitos-tecnicos/     # Registro de débitos técnicos
-    └── handoff/              # Documento de handoff para a próxima equipe
-```
+## Requisitos
 
-## Como executar localmente
+- Node.js 20 ou superior e npm.
+- Para os testes de interface, Chromium instalado pelo Playwright (instruções
+  abaixo).
+- PostgreSQL externo somente se optar por não usar o PostgreSQL embutido.
 
-Pré-requisitos: Node.js 20+ e npm.
+## Executar localmente
 
-Inicie o backend em um terminal:
+Instale as dependências e inicie a API:
 
 ```bash
 cd backend
@@ -69,108 +67,141 @@ npm ci
 npm run dev
 ```
 
-Abra `http://localhost:5173`. O Vite encaminha as chamadas `/api` para o
-backend em `http://localhost:3001`. Com o banco vazio, o backend insere 2
-setores, 2 equipamentos e 2 técnicos de exemplo (seed em
-`backend/src/db/seed.js`).
+Acesse <http://localhost:5173>. O Vite encaminha as chamadas `/api` para a API
+em <http://localhost:3001>. O endpoint <http://localhost:3001/health> retorna
+`{"status":"ok"}` quando a API está disponível.
 
-### Banco de dados
+Com o PostgreSQL local vazio, a inicialização aplica as migrations e cria dois
+setores, dois equipamentos e dois técnicos de exemplo. O seed só é executado
+quando ainda não há setores cadastrados.
 
-Não é preciso instalar PostgreSQL nem Docker. Sem a variável `DATABASE_URL`,
-o `npm start` sobe um PostgreSQL 18 local pelo pacote `embedded-postgres`
-(o binário vem no `npm ci`), na porta `54329`, com os dados em
-`backend/.pgdata`. Os dados sobrevivem ao reinício do servidor.
+### Banco de dados local
 
-- **Zerar o banco:** pare o backend e apague `backend/.pgdata`.
-- **Usar outro PostgreSQL:** defina `DATABASE_URL`
-  (ex.: `postgres://usuario:senha@host:5432/helpdesk`).
-- **Outra porta local:** defina `PG_LOCAL_PORT`.
-- **Mudar o schema:** crie um novo arquivo em `backend/migrations/`
-  (`002_...sql`); ele é aplicado no próximo `npm start`.
+Por padrão, `npm start` inicializa um PostgreSQL 18 embutido, sem exigir uma
+instalação separada de PostgreSQL ou Docker. Os dados ficam em
+`backend/.pgdata`, na porta `54329`, e permanecem após reiniciar o backend.
 
-Os testes (`npm test`) sobem um PostgreSQL descartável por arquivo de teste e
-não tocam em `backend/.pgdata`.
+- Para escolher outra porta, defina `PG_LOCAL_PORT` antes de iniciar o backend.
+- Para usar um PostgreSQL existente, defina `DATABASE_URL`, por exemplo:
+  `postgres://<usuario>:<senha>@localhost:5432/helpdesk`.
+- Para zerar os dados locais, pare o backend e remova somente
+  `backend/.pgdata`. Na próxima inicialização, o schema e o seed serão criados
+  novamente.
+- Para alterar o schema, adicione um arquivo SQL numerado em
+  `backend/migrations/`, por exemplo `003_nome_da_mudanca.sql`. Migrations
+  pendentes são aplicadas em ordem na inicialização; cada uma roda na própria
+  transação.
 
-Para servir tudo pelo backend (sem o Vite), gere o build com `npm run build`
-em `frontend/`; o backend serve `frontend/dist` em `http://localhost:3001`.
+Se o build de produção do frontend já existir em `frontend/dist`, o backend
+também serve esses arquivos em <http://localhost:3001>. Para gerá-lo:
 
-Erros da API vêm como `{ erro }`: `422` para violação de regra de negócio ou
-payload inválido (inclusive dado recusado pelo banco), `404` para setor,
-equipamento, técnico ou chamado inexistente.
+```bash
+cd frontend
+npm run build
+```
 
-## Integração contínua
+## Testes e validações
 
-O GitHub Actions valida o backend (`npm ci` e `npm test`) e o frontend
-(`npm ci`, `npm run lint`, `npm run build` e testes de interface com Playwright)
-em cada push e pull request.
-Esses comandos também podem ser executados localmente nas pastas
-`backend` e `frontend`, respectivamente.
+Execute os testes do backend (usam PostgreSQL descartável e não alteram
+`backend/.pgdata`):
 
-## Principais endpoints da API
+```bash
+cd backend
+npm ci
+npm test
+```
+
+Execute lint, build e testes de navegador do frontend:
+
+```bash
+cd frontend
+npm ci
+npm run lint
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+Os testes de interface usam respostas controladas da API e iniciam um Vite
+temporário na porta `5175`; não precisam do banco local. No GitHub Actions, os
+testes do backend e as validações do frontend rodam em jobs separados a cada
+push e pull request. O workflow instala as dependências do Chromium antes dos
+testes de interface.
+
+## API
+
+Todas as rotas abaixo são prefixadas por `/api`.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/setores` | Lista setores |
-| POST | `/api/setores` | Cria setor `{ nome }` |
-| GET | `/api/equipamentos` | Lista equipamentos (com setor) |
-| GET | `/api/equipamentos/:id/pecas` | Histórico de peças trocadas no equipamento, da mais recente para a mais antiga |
-| POST | `/api/equipamentos` | Cria equipamento `{ nome, setorId, codigoPatrimonio }` |
-| GET | `/api/tecnicos` | Lista técnicos + contagem de chamados "Alta" abertos |
-| GET | `/api/chamados` | Lista chamados priorizados (filtros: `status`, `urgencia`, `tecnicoId`) |
-| POST | `/api/chamados` | Abre chamado `{ equipamentoId, urgencia, descricao, tipo }` |
-| PATCH | `/api/chamados/:id/atribuir` | Atribui técnico `{ tecnicoId }` — aplica a RN crítica |
-| PATCH | `/api/chamados/:id/concluir` | Conclui o chamado `{ laudo, causaRaiz, trocas: [{ pecaNome, quantidade?, observacao? }], pecasTrocadas }` (todos opcionais); conclusão e trocas gravadas na mesma transação; chamado já concluído ou peça inválida retorna 422 |
+| `GET` | `/setores` | Lista setores. |
+| `POST` | `/setores` | Cria setor com `{ "nome": "Produção" }`. |
+| `GET` | `/equipamentos` | Lista equipamentos com seus setores. |
+| `POST` | `/equipamentos` | Cria equipamento com `{ "nome", "setorId", "codigoPatrimonio" }`; patrimônio é opcional. |
+| `GET` | `/equipamentos/:id/pecas` | Lista o histórico de peças do equipamento, da mais recente para a mais antiga. |
+| `GET` | `/tecnicos` | Lista técnicos e a contagem de chamados `Alta` abertos. |
+| `GET` | `/chamados` | Lista chamados priorizados; aceita filtros `status`, `urgencia` e `tecnicoId`. |
+| `POST` | `/chamados` | Abre chamado com `{ "equipamentoId", "urgencia", "descricao", "tipo" }`; urgência é `Alta`, `Media` ou `Baixa`, e tipo é `Corretiva` ou `Preventiva`. |
+| `PATCH` | `/chamados/:id/atribuir` | Atribui técnico com `{ "tecnicoId" }` e aplica a regra de limite. |
+| `PATCH` | `/chamados/:id/concluir` | Conclui o chamado com laudo, causa raiz e peças substituídas. |
 
-Coleção Postman pronta para importar: `docs/handoff/postman_collection.json`.
+No endpoint de conclusão, `laudo`, `causaRaiz` e `pecasTrocadas` são opcionais.
+As peças estruturadas são enviadas em `trocas`, uma lista que pode estar vazia:
 
-## Gestão do time e entregáveis do processo (fora deste repositório)
+```json
+{
+  "laudo": "Rolamento substituído.",
+  "causaRaiz": "Desgaste",
+  "trocas": [
+    { "pecaNome": "Rolamento 6205", "quantidade": 2 },
+    { "pecaNome": "Correia", "observacao": "Tensionada após a troca" }
+  ]
+}
+```
 
-Os itens abaixo fazem parte do pacote de entrega da N1, mas vivem fora do
-código-fonte:
+`quantidade` é opcional e assume `1`; `observacao` também é opcional. Se uma
+peça for inválida ou o chamado já estiver concluído, a API responde `422` sem
+salvar parcialmente a conclusão. Os erros da API usam o formato
+`{ "erro": "mensagem" }`; recursos inexistentes retornam `404`.
 
-- **GitHub:** publicar este conteúdo em um repositório da equipe e criar a
-  tag/release `v1.0` assim que a N1 for aprovada, para congelar o que foi
-  avaliado.
-- **Gestão de tarefas:** quadro em Jira/Trello/GitHub Projects com o
-  acompanhamento das tarefas da N1 (não incluído aqui por depender de contas
-  da equipe).
-- **Matriz de Papéis / Histórico de Contribuições:** `Matriz_de_Papeis_N1.docx`
-  (entregue separadamente).
-- **Pitch:** `Pitch_Helpdesk_Manutencao_Industrial.pdf`, apresentado pelo PO.
-- **Comentário no Teams:** usar o modelo em `docs/handoff/comentario-teams.md`.
+## Estrutura do repositório
+
+```text
+backend/
+  migrations/       Migrations SQL do PostgreSQL
+  src/
+    db/             Conexão, PostgreSQL local, migrations e seed
+    routes/         Rotas HTTP da API
+    services/       Regras de negócio dos chamados
+    app.js          Aplicação Express
+    server.js       Inicialização do banco, API e frontend compilado
+  test/             Testes do backend e utilitários de banco descartável
+frontend/
+  e2e/              Testes de interface com Playwright
+  src/
+    components/     Quadro, telas e diálogos da aplicação
+    services/       Cliente da API
+docs/
+  contratos/        Contrato de trocas e histórico de peças
+  debitos-tecnicos/ Débitos técnicos conhecidos
+  DER/              Modelo de dados e visão de evolução
+  handoff/          Handoff e coleção Postman
+```
 
 ## Papéis da equipe (conforme Acordo de Manutenibilidade)
 
 | Papel | Integrante |
 |---|---|
-| Product Owner (PO) | Ruan Pablo de Lima Pereira |
-| Quality Assurance (QA) | Vinicius Clemente Negherbon |
-| Desenvolvedor Frontend | Rodrigo Bonifácio Conceição |
-| Desenvolvedor Backend | Bianca Barp |
-| DevOps | Guilherme Pietro Ruiz Costa |
+| Engenheiro de Requisitos | Heitor Lopes Reis |
+| Product Owner (PO) | Anttonio Osório Molinaro Maccagnini |
+| Quality Assurance (QA) | Gabriel Lengert Guedes |
+| Desenvolvedor Frontend | Rafael Alexandre Alves Bandoch |
+| Desenvolvedor Backend | João Vitor Paranhos |
+| DevOps | João Pedro Alves de Lima |
 
-> A partir desta atualização a equipe está com 5 integrantes. As responsabilidades
-> de Engenharia de Requisitos (antes a cargo de um integrante que deixou o time)
-> foram absorvidas pelo PO, com apoio do QA na formalização dos critérios de
-> aceitação — sem impacto no escopo ou na RN crítica já entregues na N1.
+## Documentação relacionada
 
-O papel atribuído não é exclusivo: qualquer integrante pode e deve atuar em
-outras frentes quando necessário (ver `Matriz_de_Papeis_N1.docx` para o
-histórico real de contribuições).
-
-## Testes da interface
-
-Os testes de navegador usam respostas controladas da API para verificar os
-fluxos da interface sem depender do banco local. A suíte do backend usa
-PostgreSQL real e valida as regras e a persistência das rotas.
-
-```bash
-cd frontend
-npm ci
-npx playwright install chromium
-npm run test:e2e
-```
-
-O Playwright inicia um Vite separado na porta 5175. Os testes não alteram os
-dados de `backend/.pgdata`. No CI, o navegador e suas dependências são
-instalados antes da execução.
+- [Contrato de trocas e histórico de peças](docs/contratos/trocas-e-historico.md)
+- [Débitos técnicos](docs/debitos-tecnicos/debitos-tecnicos.md)
+- [Documento de handoff](docs/handoff/handoff.md)
+- [Coleção Postman](docs/handoff/postman_collection.json)

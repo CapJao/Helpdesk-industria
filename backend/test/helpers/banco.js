@@ -37,7 +37,6 @@ async function prepararBanco() {
     async encerrar() {
       await db.desconectar();
       await local.parar();
-      fs.rmSync(dir, { recursive: true, force: true });
     },
   };
 }
